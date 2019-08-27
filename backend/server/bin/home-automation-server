@@ -1,0 +1,3 @@
+. /etc/profile.d/gradle.sh
+cd /usr/lib/home-automation-server
+gradle run
