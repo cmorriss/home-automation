@@ -5,6 +5,14 @@ Server and nodes are written in Kotlin and utilize the Ktor framework.
 
 UI is written in Typescript and built on the Angular 2 and Ionic frameworks.
 
+# Installing
+
+To install the server, run `gradle distTar` and take the distribution file under `build/distributions/home-automation-server-<version>.tar` and untar it in a directory like `/usr/lib`.
+
+To add the UI to it, make sure you have `npm` installed. Install Ionic by running `npm install -g ionic`. Build the UI by running `ionic build --engine=browser`. Finally, copy the files under the `ui/www` directory to wherever you untarred the home-automation-server build in a new `app` directory.
+
+Crank it up by running `bin/home-automation-server`.
+
 # FAQ
 **Why didn't you use OpenHab2 or some other automation server that already does this?**
 
