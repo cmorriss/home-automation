@@ -10,7 +10,9 @@ import java.io.File
 
 fun Route.staticContent(serverConfig: HomeServerConfig) {
     static("/app") {
-        staticRootFolder = File("${serverConfig.appContentDir}/www")
+        val staticContentDir = serverConfig.appContentDir
+        log.info("Setting /app static content route to directory $staticContentDir")
+        staticRootFolder = File(staticContentDir)
         default("index.html")
         files(".")
         files("assets")

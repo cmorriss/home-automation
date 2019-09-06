@@ -1,6 +1,7 @@
 plugins {
     java
     kotlin("jvm")
+    kotlin("kapt")
     application
 }
 
@@ -9,10 +10,19 @@ application {
 }
 
 val ktorVersion: String by project
+val kotlinVersion: String by project
 val logbackVersion: String by project
-val exposedVersion: String by project
+val requeryVersion: String by project
+val kotlinCoroutinesVersion: String by project
 
 dependencies {
+    compile(kotlin("stdlib"))
+    compile(kotlin("reflect"))
+    compile("org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion")
+    compile("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    compile("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$kotlinCoroutinesVersion")
+    compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
+    compile("org.jetbrains.kotlinx:kotlinx-coroutines-core-common:$kotlinCoroutinesVersion")
     compile("org.apache.commons:commons-email:1.5")
     compile("javax.activation:javax.activation-api:1.2.0")
     compile("io.ktor:ktor-server-netty:$ktorVersion")
@@ -29,12 +39,11 @@ dependencies {
     compile("io.ktor:ktor-auth:$ktorVersion")
     compile("io.ktor:ktor-jackson:$ktorVersion")
     compile("io.micrometer:micrometer-registry-influx:latest.release")
-    compile("org.jetbrains.exposed:exposed:$exposedVersion") {
-        exclude(module = "log4j")
-        exclude(module = "slf4j-log4j12")
-        exclude(module = "kotlin-stdlib")
-        exclude(module = "kotlin-reflect")
-    }
+    compile("io.requery:requery:$requeryVersion")
+    compile("io.requery:requery-kotlin:$requeryVersion")
+    compile("com.h2database:h2:1.4.199")
+    compile("joda-time:joda-time:2.10.3")
+    kapt("io.requery:requery-processor:$requeryVersion")
     testCompile("io.ktor:ktor-server-tests:$ktorVersion")
     testCompile("io.ktor:ktor-server-test-host:$ktorVersion")
     testCompile("io.ktor:ktor-client-mock:$ktorVersion")

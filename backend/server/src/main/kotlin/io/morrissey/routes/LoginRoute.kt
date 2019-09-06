@@ -18,7 +18,7 @@ import io.ktor.sessions.set
 import io.morrissey.HomeServerConfig
 import io.morrissey.Login
 import io.morrissey.LoginFailed
-import io.morrissey.model.User
+import io.morrissey.model.*
 import io.morrissey.persistence.HomeDao
 import io.morrissey.security.HomeSiteSession
 import io.ktor.client.request.get as clientGet
@@ -45,29 +45,29 @@ fun Route.login(db: HomeDao, serverConfig: HomeServerConfig) {
         log.debug("Received data for principal: $data")
 
         if (id != null) {
-            if (db.userByOauthId(id) == null) {
-                val verifiedEmail = (data["verified_email"] as? Boolean) == true
-                val email = data["email"] as? String ?: ""
-                val firstName = data["given_name"] as? String ?: ""
-                val lastName = data["family_name"] as? String ?: ""
-                val picUrl = data["picture"] as? String ?: ""
-                if (verifiedEmail && emailIsAllowed(email, serverConfig)) {
-                    db.createUser(
-                        User(
-                            oauthId = id,
-                            email = email,
-                            firstName = firstName,
-                            lastName = lastName,
-                            picUrl = picUrl
-                        )
-                    )
-                } else {
-                    val reason = if (!verifiedEmail) {
-                        "The email address on the Google account has not been verified."
+            val verifiedEmail = (data["verified_email"] as? Boolean) == true
+            val email = data["email"] as? String ?: ""
+            if (!verifiedEmail || db.userByEmail(email) == null) {
+                if (db.userByOauthId(id) == null) {
+                    val firstName = data["given_name"] as? String ?: ""
+                    val lastName = data["family_name"] as? String ?: ""
+                    val picUrl = data["picture"] as? String ?: ""
+                    if (verifiedEmail && emailIsAllowed(email, serverConfig)) {
+                        db.createUser(UserEntity().apply {
+                            oauthId = id
+                            this.email = email
+                            this.firstName = firstName
+                            this.lastName = lastName
+                            this.picUrl = picUrl
+                        })
                     } else {
-                        "The email address is not in the allowed list."
+                        val reason = if (!verifiedEmail) {
+                            "The email address on the Google account has not been verified."
+                        } else {
+                            "The email address is not in the allowed list."
+                        }
+                        call.respondRedirect(locations.href(LoginFailed(reason)))
                     }
-                    call.respondRedirect(locations.href(LoginFailed(reason)))
                 }
             }
 

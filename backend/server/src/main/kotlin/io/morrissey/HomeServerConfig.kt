@@ -18,7 +18,7 @@ class HomeServerConfig(val appConfig: ApplicationConfig? = null, val overrides: 
 
     val configDir: File by AppConfigProperty("/etc/home-automation-server") { File(it) }
     val libDir: String by AppConfigProperty("/usr/lib/home-automation-server") { it }
-    val dbFile: File by AppConfigProperty("${configDir.absolutePath}/db/prod") { File(it) }
+    val dbUrl: String by AppConfigProperty("jdbc:h2:file:${configDir.absolutePath}/db/prod") { it }
     val appContentDir: String by AppConfigProperty("$libDir/app") { it }
     val logLevel: Level by AppConfigProperty("DEBUG") { Level.valueOf(it) }
     val requestLogLevel: LogLevel by AppConfigProperty("INFO") { LogLevel.valueOf(it) }
@@ -38,7 +38,7 @@ class HomeServerConfig(val appConfig: ApplicationConfig? = null, val overrides: 
         log.info(
             """Server config initialized to:
             |  configDir = $configDir
-            |  dbFile = $dbFile
+            |  dbFile = $dbUrl
             |  logLevel = $logLevel
             |  requestLogLevel = $requestLogLevel
         """.trimMargin()

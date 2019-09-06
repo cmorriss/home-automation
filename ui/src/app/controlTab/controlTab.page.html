@@ -7,9 +7,14 @@
 </ion-header>
 
 <ion-content>
+    <ion-item-group *ngFor="let switchGroup of switchGroups">
+        <ion-item-divider>
+            <ion-label>{{switchGroup.displayName}}</ion-label>
+        </ion-item-divider>
   <!-- Toggles in a List -->
-    <ion-item *ngFor="let aSwitch of switches">
+    <ion-item *ngFor="let aSwitch of switchGroup.switches">
         <ion-label>{{aSwitch.name}}</ion-label>
         <ion-toggle [color]="aSwitch.buttonColor" [checked]="aSwitch.on" (ionChange)="toggleSwitch(aSwitch)"></ion-toggle>
     </ion-item>
+    </ion-item-group>
 </ion-content>

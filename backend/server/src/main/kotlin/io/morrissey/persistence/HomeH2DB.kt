@@ -1,244 +1,134 @@
 package io.morrissey.persistence
 
+import io.morrissey.*
 import io.morrissey.model.*
 import io.morrissey.model.IotLocation.*
-import io.morrissey.model.SwitchType.*
-import io.morrissey.routes.log
-import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.statements.UpdateBuilder
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
-import java.io.File
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import io.morrissey.model.ScheduleStatus
+import io.morrissey.model.SwitchKind.*
+import io.requery.*
+import io.requery.query.*
+import io.requery.sql.*
+import org.h2.jdbcx.*
+import java.time.*
+import java.time.format.*
 
-class HomeH2DB(private val db: Database = Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver")) :
-    HomeDao {
+class HomeH2DB(url: String) : HomeDao {
+    val db: KotlinEntityDataStore<Persistable>
 
-    constructor(dir: File) : this(
-        Database.connect("jdbc:h2:file:${dir.canonicalFile.absolutePath}", driver = "org.h2.Driver")
-    ) {
+    init {
+        val dataSource = JdbcDataSource().also { it.setUrl(url) }
+        val configuration = KotlinConfiguration(dataSource = dataSource, model = Models.DEFAULT)
+        SchemaModifier(dataSource, Models.DEFAULT).createTables(TableCreationMode.CREATE_NOT_EXISTS)
+        db = KotlinEntityDataStore(configuration)
+        val result = db.data.raw("SELECT * FROM INFORMATION_SCHEMA.TABLES")
+        val resultList = result.toList()
         // Create the used tables
-        transaction(db) {
-            log.info("db during create = $db")
-            addLogger(StdOutSqlLogger)
-            SchemaUtils.create(Switches, Schedules, ScheduleStatuses, Users)
-            if (switches().isEmpty()) {
-                createSwitches()
-            }
-        }
+        createSwitches()
     }
 
     private fun createSwitches() {
-        createSwitch(Switch(name = "La Isla Bonita", type = IRRIGATION_VALVE, location = Backyard, locationId = 2))
-        createSwitch(Switch(name = "Irish Moss", type = IRRIGATION_VALVE, location = Backyard, locationId = 3))
-        createSwitch(Switch(name = "Grass", type = IRRIGATION_VALVE, location = Backyard, locationId = 4))
-        createSwitch(Switch(name = "Flood Light", type = LIGHT_SWITCH, location = Backyard, locationId = 5))
-        createSwitch(Switch(name = "Orchard", type = IRRIGATION_VALVE, location = Backyard, locationId = 5))
-        createSwitch(Switch(name = "Garden", type = IRRIGATION_VALVE, location = Frontyard, locationId = 2))
-        createSwitch(Switch(name = "Bushes", type = IRRIGATION_VALVE, location = Frontyard, locationId = 3))
-        createSwitch(Switch(name = "Ferns", type = IRRIGATION_VALVE, location = Frontyard, locationId = 4))
+        createSwitch("islaBonita", "La Isla Bonita", Backyard, 2)
+        createSwitch("irishMoss", "Irish Moss", Backyard, 3)
+        createSwitch("grass", "Grass", Backyard, 4)
+        createSwitch("floodLight", "Flood Light", Backyard, 6, LIGHT_SWITCH)
+        createSwitch("orchard", "Orchard", Backyard, 5)
+        createSwitch("garden", "Garden", Frontyard, 2)
+        createSwitch("bushes", "Bushes", Frontyard, 3)
+        createSwitch("ferns", "Ferns", Frontyard, 4)
+    }
+
+    private fun createSwitch(
+        givenId: String,
+        name: String,
+        location: IotLocation,
+        locationId: Int,
+        kind: SwitchKind = IRRIGATION_VALVE
+    ) {
+        var existing = switchByGivenId(givenId)
+        if (existing == null) {
+            createSwitch(SwitchEntity().apply {
+                this.givenId = givenId
+                this.name = name
+                this.kind = kind
+                this.location = location
+                this.locationId = locationId
+                lastUpdate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+                schedule = schedule(createSchedule(emptySchedule()))!!
+            })
+        }
     }
 
     //////////////////
     // User
     /////////////////
-    override fun createUser(user: User): Int = transaction(db) {
-        Users.insertAndGetId {
-            it[oauthId] = user.oauthId
-            it[firstName] = user.firstName
-            it[lastName] = user.lastName
-            it[email] = user.email
-            it[picUrl] = user.picUrl
-            it[createDate] = DateTime.now()
-        }.value
+    override fun createUser(user: User): Int {
+        return db.insert(user).id
     }
 
     override fun updateUser(user: User) {
-        transaction(db) {
-            Users.update {
-                it[firstName] = user.firstName
-                it[lastName] = user.lastName
-                it[picUrl] = user.picUrl
-                it[email] = user.email
-            }
-        }
+        db.update(user)
     }
 
-    override fun user(id: Int) = findUser { Users.id eq id }
+    override fun user(id: Int) = db.findByKey(User::class, id)
 
-    override fun userByOauthId(id: String) = findUser { Users.oauthId eq id }
+    override fun userByOauthId(id: String) = findUser(UserEntity.OAUTH_ID.eq(id))
 
-    override fun userByEmail(email: String) = findUser { Users.email eq email }
+    override fun userByEmail(email: String) = findUser(UserEntity.EMAIL.eq(email))
 
-    private fun findUser(select: SqlExpressionBuilder.() -> Op<Boolean>): User? = transaction(db) {
-        Users.select(select).firstOrNull()?.let { toUser(it) }
-    }
-
-    private fun toUser(rr: ResultRow): User = transaction(db) {
-        with(Users) {
-            User(
-                id = rr[id].value,
-                oauthId = rr[oauthId],
-                email = rr[email],
-                firstName = rr[firstName],
-                lastName = rr[lastName],
-                picUrl = rr[picUrl]
-            )
-        }
+    private fun <L, R> findUser(condition: Condition<L, R>): User? {
+        return db.select(User::class).where(condition).get().firstOrNull()
     }
 
     ////////////////////////
     // Switches
     ////////////////////////
-    override fun createSwitch(aSwitch: Switch): Int = transaction(db) {
-        Switches.insertAndGetId {
-            it.fromSwitch(aSwitch)
-            it[schedule] = EntityID(createSchedule(aSwitch.schedule), Schedules)
-        }.value
+    override fun createSwitch(aSwitch: SwitchEntity): Int {
+        return db.insert(aSwitch).id
     }
 
     override fun updateSwitch(aSwitch: Switch) {
-        transaction(db) {
-            Switches.update(where = { Switches.id eq aSwitch.id }) {
-                it.fromSwitch(aSwitch)
-                updateSchedule(aSwitch.schedule)
-            }
-        }
+        aSwitch.lastUpdate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+        db.update(aSwitch)
     }
 
-    private fun UpdateBuilder<*>.fromSwitch(aSwitch: Switch) {
-        this[Switches.name] = aSwitch.name
-        this[Switches.type] = aSwitch.type.name
-        this[Switches.location] = aSwitch.location.name
-        this[Switches.locationId] = aSwitch.locationId
-        this[Switches.locationStatus] = aSwitch.locationStatus.name
-        this[Switches.locationStatusMessage] = aSwitch.locationStatusMessage
-        this[Switches.on] = aSwitch.on
-        this[Switches.lastUpdate] = DateTime.now().millis
-    }
+    override fun switch(id: Int) = db.findByKey(Switch::class, id)
 
-    override fun switch(id: Int) = findSwitch { Switches.id eq id }
+    override fun switches(): List<Switch> = db.select(Switch::class).get().toList()
 
-    override fun switches(): List<Switch> = transaction(db) {
-        Switches.selectAll().map {
-            toSwitch(it)
-        }
-    }
+    override fun switchBySchedule(scheduleId: Int) = findSwitch(SwitchEntity.SCHEDULE_ID.eq(scheduleId))
 
-    override fun switchBySchedule(scheduleId: Int) =
-        findSwitch { Switches.schedule eq EntityID(scheduleId, Schedules) }
+    override fun switchByGivenId(givenId: String) = findSwitch(SwitchEntity.GIVEN_ID.eq(givenId))
 
-    private fun findSwitch(select: SqlExpressionBuilder.() -> Op<Boolean>): Switch? =
-        transaction(db) {
-            Switches.select(select).firstOrNull()?.let { toSwitch(it) }
-        }
-
-    private fun toSwitch(rr: ResultRow): Switch = transaction(db) {
-        with(Switches) {
-            Switch(
-                id = rr[id].value,
-                name = rr[name],
-                type = SwitchType.valueOf(rr[type]),
-                location = IotLocation.valueOf(rr[location]),
-                locationId = rr[locationId],
-                locationStatus = LocationStatus.valueOf((rr[locationStatus])),
-                locationStatusMessage = rr[locationStatusMessage],
-                on = rr[on],
-                lastUpdate = rr[lastUpdate],
-                schedule = this@HomeH2DB.schedule(rr[schedule].value)!!
-            )
-        }
+    private fun <L, R> findSwitch(condition: Condition<L, R>): Switch? {
+        return db.select(Switch::class).where(condition).get().firstOrNull()
     }
 
     //////////////
     // Schedule
     //////////////
-    override fun createSchedule(schedule: Schedule): Int = transaction(db) {
-        Schedules.insertAndGetId {
-            it.fromSchedule(schedule)
-        }.value
+    override fun createSchedule(schedule: ScheduleEntity): Int {
+        return db.insert(schedule).id
     }
 
     override fun updateSchedule(schedule: Schedule) {
-        transaction(db) {
-            Schedules.update(where = { Schedules.id eq schedule.id }) {
-                it.fromSchedule(schedule)
-            }
+        db.update(schedule)
+    }
+
+    override fun schedule(id: Int) = db.findByKey(Schedule::class, id)
+
+    override fun schedules(): List<Schedule> = db.select(Schedule::class).get().toList()
+
+    override fun scheduleStatus(): ScheduleStatus {
+        return db.findByKey(ScheduleStatus::class, 1) ?: ScheduleStatusEntity().apply {
+            id = 1
+            status = "active"
+            pausedUntilDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+            db.insert(this)
         }
-    }
-
-    private fun UpdateBuilder<*>.fromSchedule(schedule: Schedule) {
-        this[Schedules.daysOn] = schedule.daysOn.joinToString { it.name }
-        this[Schedules.startTime] = schedule.startTime
-        this[Schedules.duration] = schedule.duration
-    }
-
-    override fun schedule(id: Int): Schedule? = transaction(db) {
-        Schedules.select {
-            Schedules.id eq id
-        }.firstOrNull()?.let { toSchedule(it) }
-    }
-
-    override fun schedules(): List<Schedule> = transaction(db) {
-        Schedules.selectAll().map { toSchedule(it) }
-    }
-
-    private fun toSchedule(rr: ResultRow): Schedule = transaction(db) {
-        with(Schedules) {
-            val daysOn = if (rr[daysOn].isNotBlank()) {
-                rr[daysOn].split(",").map {
-                    DayOfWeek.valueOf(it.trim())
-                }.toSet()
-            } else {
-                emptySet()
-            }
-            Schedule(
-                id = rr[id].value,
-                daysOn = daysOn,
-                startTime = rr[startTime],
-                duration = rr[duration]
-            )
-        }
-    }
-
-    override fun scheduleStatus(): ScheduleStatus = transaction(db) {
-        val status = ScheduleStatuses.select { ScheduleStatuses.id.eq(1) }.firstOrNull()
-        val returnStatus: ScheduleStatus
-        if (status == null) {
-            returnStatus = ScheduleStatus("active", LocalDate.now().format(DateTimeFormatter.ISO_DATE))
-            ScheduleStatuses.insert {
-                it[ScheduleStatuses.status] = returnStatus.status
-                it[ScheduleStatuses.pausedUntilDate] = returnStatus.pausedUntilDate
-            }
-        } else {
-            returnStatus = toScheduleStatus(status)
-        }
-        returnStatus
     }
 
 
     override fun updateScheduleStatus(status: ScheduleStatus) {
-        transaction(db) {
-            ScheduleStatuses.update(where = { ScheduleStatuses.id eq 1 }) {
-                it.fromScheduleStatus(status)
-            }
-        }
-    }
-
-    private fun UpdateBuilder<*>.fromScheduleStatus(status: ScheduleStatus) {
-        this[ScheduleStatuses.status] = status.status
-        this[ScheduleStatuses.pausedUntilDate] = status.pausedUntilDate
-    }
-
-    private fun toScheduleStatus(rr: ResultRow): ScheduleStatus = transaction(db) {
-        with(ScheduleStatuses) {
-            ScheduleStatus(
-                status = rr[status],
-                pausedUntilDate = rr[pausedUntilDate]
-            )
-        }
+        db.update(status)
     }
 }

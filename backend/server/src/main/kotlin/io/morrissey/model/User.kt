@@ -1,10 +1,16 @@
 package io.morrissey.model
 
-data class User(
-    val id: Int = NO_ID,
-    val oauthId: String,
-    val email: String,
-    val firstName: String,
-    val lastName: String,
-    val picUrl: String
-)
+import io.requery.*
+
+@Table(name = "AuthenticationUsers")
+@Entity
+interface User : Persistable {
+    @get:Key
+    @get:Generated
+    val id: Int
+    var oauthId: String
+    var email: String
+    var firstName: String
+    var lastName: String
+    var picUrl: String
+}

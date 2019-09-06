@@ -10,45 +10,51 @@
     <ion-header>
         <ion-item>
             <ion-item lines="none">
-            <ion-label position="stacked">Status</ion-label>
-            <ion-button [color]="scheduleStatus.status.color" (click)="openScheduleStatusPicker()">{{scheduleStatus.status.displayValue}}</ion-button>
+                <ion-label position="stacked">Status</ion-label>
+                <ion-button [color]="scheduleStatus.status.color"
+                            (click)="openScheduleStatusPicker()">{{scheduleStatus.status.displayValue}}</ion-button>
             </ion-item>
 
             <ion-item lines="none">
-            <ion-label position="stacked" [hidden]="scheduleStatus.isNotPaused">Until</ion-label>
-            <ion-button [hidden]="scheduleStatus.isNotPaused" color="primary" (click)="presentPopover($event)">{{pausedUntilDateString()}}</ion-button>
+                <ion-label position="stacked" [hidden]="scheduleStatus.isNotPaused">Until</ion-label>
+                <ion-button [hidden]="scheduleStatus.isNotPaused" color="primary"
+                            (click)="presentPopover($event)">{{pausedUntilDateString()}}</ion-button>
             </ion-item>
         </ion-item>
     </ion-header>
-        <ion-item *ngFor="let aSwitch of switches">
-                <ion-label>{{aSwitch.name}}</ion-label>
-                <ion-item lines="none">
-                    <ion-label position="stacked">Start Time</ion-label>
-                    <ion-button [textContent]="aSwitch.schedule.startTime"
-                                (click)="openStartTimePicker(aSwitch.schedule)"></ion-button>
-                </ion-item>
-                <ion-item lines="none">
-                    <ion-label position="stacked">Duration</ion-label>
-                    <ion-button [textContent]="aSwitch.schedule.duration"
-                                (click)="openDurationPicker(aSwitch.schedule)"></ion-button>
+    <ion-item-group *ngFor="let switchGroup of switchGroups">
+        <ion-item-divider>
+            <ion-label>{{switchGroup.displayName}}</ion-label>
+        </ion-item-divider>
+        <ion-item *ngFor="let aSwitch of switchGroup.switches">
+            <ion-label>{{aSwitch.name}}</ion-label>
+            <ion-item lines="none">
+                <ion-label position="stacked">Start Time</ion-label>
+                <ion-button [textContent]="aSwitch.schedule.startTime"
+                            (click)="openStartTimePicker(aSwitch.schedule)"></ion-button>
+            </ion-item>
+            <ion-item lines="none">
+                <ion-label position="stacked">Duration</ion-label>
+                <ion-button [textContent]="buildDurationString(aSwitch.schedule)"
+                            (click)="openDurationPicker(aSwitch.schedule, aSwitch.kind)"></ion-button>
 
-                </ion-item>
-                <ion-item lines="none">
-                    <ion-label position="stacked">Scheduled Days</ion-label>
-                    <ion-button [textContent]="buildDays(aSwitch.schedule)"
-                                (click)="openDaysSelect(aSwitch)"></ion-button>
+            </ion-item>
+            <ion-item lines="none">
+                <ion-label position="stacked">Scheduled Days</ion-label>
+                <ion-button [textContent]="buildDays(aSwitch.schedule)"
+                            (click)="openDaysSelect(aSwitch)"></ion-button>
 
-                    <ion-select [placeholder]="aSwitch.name + 'select'" multiple="true" hidden
-                                (ionChange)='updateDays(aSwitch.schedule, $event)'>
-                        <ion-select-option value="MONDAY">Monday</ion-select-option>
-                        <ion-select-option value="TUESDAY">Tuesday</ion-select-option>
-                        <ion-select-option value="WEDNESDAY">Wednesday</ion-select-option>
-                        <ion-select-option value="THURSDAY">Thursday</ion-select-option>
-                        <ion-select-option value="FRIDAY">Friday</ion-select-option>
-                        <ion-select-option value="SATURDAY">Saturday</ion-select-option>
-                        <ion-select-option value="SUNDAY">Sunday</ion-select-option>
-                    </ion-select>
-                </ion-item>
+                <ion-select [placeholder]="aSwitch.name + 'select'" multiple="true" hidden
+                            (ionChange)='updateDays(aSwitch.schedule, $event)'>
+                    <ion-select-option value="MONDAY">Monday</ion-select-option>
+                    <ion-select-option value="TUESDAY">Tuesday</ion-select-option>
+                    <ion-select-option value="WEDNESDAY">Wednesday</ion-select-option>
+                    <ion-select-option value="THURSDAY">Thursday</ion-select-option>
+                    <ion-select-option value="FRIDAY">Friday</ion-select-option>
+                    <ion-select-option value="SATURDAY">Saturday</ion-select-option>
+                    <ion-select-option value="SUNDAY">Sunday</ion-select-option>
+                </ion-select>
+            </ion-item>
         </ion-item>
-
+    </ion-item-group>
 </ion-content>

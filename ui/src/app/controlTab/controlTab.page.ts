@@ -1,8 +1,9 @@
-import {Component, QueryList, ViewChild, ViewChildren} from '@angular/core';
+import {Component} from '@angular/core';
 import {IotService} from '../iot.service';
-import {LoadingController, PickerController, IonSelect} from '@ionic/angular';
+import {LoadingController} from '@ionic/angular';
 import {SwitchView} from '../models/SwitchView';
 import {Schedule} from '../models/Schedule';
+import {SwitchGroup} from "../models/SwitchGroup";
 
 @Component({
     selector: 'app-tab1',
@@ -11,7 +12,7 @@ import {Schedule} from '../models/Schedule';
 })
 export class ControlTabPage {
 
-    switches: SwitchView[];
+    switchGroups: SwitchGroup[] = [];
 
     constructor(public iotService: IotService, public loadingController: LoadingController) {
     }
@@ -24,7 +25,10 @@ export class ControlTabPage {
         await this.iotService.getSwitches()
             .subscribe(res => {
                 console.log(res);
-                this.switches = res.map(aSwitch => new SwitchView(aSwitch));
+                var foundSwitchGroups = SwitchGroup.fromSwitches(res).values();
+                console.log("Found these switch groups:");
+                console.log(foundSwitchGroups);
+                this.switchGroups = Array.from(foundSwitchGroups);
                 loading.dismiss();
             }, err => {
                 console.log(err);

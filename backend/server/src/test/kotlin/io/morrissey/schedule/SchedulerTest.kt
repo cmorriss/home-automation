@@ -17,6 +17,8 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockkStatic
 import io.morrissey.model.*
+import io.morrissey.model.IotLocation.*
+import io.morrissey.model.SwitchKind.*
 import io.morrissey.persistence.TestDb
 import io.morrissey.routes.refreshSwitchState
 import org.junit.jupiter.api.AfterAll
@@ -65,22 +67,22 @@ class SchedulerTest {
 
     @BeforeEach
     fun setup() {
-
         db = TestDb()
 
-        val schedule = Schedule(
-            daysOn = setOf(TUESDAY),
-            startTime = "$startHour:$startMinute",
-            duration = duration
-        )
+        val testSchedulePrototype = ScheduleEntity().apply {
+            daysOn = setOf(TUESDAY)
+            startTime = "${this@SchedulerTest.startHour}:${this@SchedulerTest.startMinute}"
+            duration = this@SchedulerTest.duration
+        }
+        val testSchedule = db.schedule(db.createSchedule(testSchedulePrototype))!!
 
-        val valve = Switch(
-            name = "TestValve",
-            type = SwitchType.IRRIGATION_VALVE,
-            location = IotLocation.Backyard,
-            locationId = 1,
-            schedule = schedule
-        )
+        val valve = SwitchEntity().apply {
+            name = "TestValve"
+            kind = IRRIGATION_VALVE
+            location = Backyard
+            locationId = 1
+            schedule = testSchedule
+        }
         val valveId = db.createSwitch(valve)
         storedSwitch = db.switch(valveId)!!
         storedSchedule = storedSwitch.schedule
@@ -112,7 +114,7 @@ class SchedulerTest {
     @Test
     fun timerOffTest() {
         setupMockEngineResponse(false)
-        db.updateSwitch(storedSwitch.copy(on = true))
+        db.updateSwitch(storedSwitch.apply { on = true })
         scheduler = Scheduler(
             db,
             Timer(),

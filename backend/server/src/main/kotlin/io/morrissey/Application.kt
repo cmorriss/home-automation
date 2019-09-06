@@ -9,7 +9,6 @@ import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.auth.Authentication
 import io.ktor.auth.authenticate
-import io.ktor.auth.basic
 import io.ktor.auth.oauth
 import io.ktor.client.HttpClient
 import io.ktor.client.features.json.GsonSerializer
@@ -187,7 +186,7 @@ fun Application.module() {
     }
     val timer = Timer(true)
     val clock = Clock.systemDefaultZone()
-    val db = HomeH2DB(homeServerConfig.dbFile)
+    val db = HomeH2DB(homeServerConfig.dbUrl)
     Scheduler(db, timer, client, clock)
     ErrorReporter(Timer(), EmailFactory(), client, homeServerConfig)
     injectedModule(db, client, homeServerConfig)

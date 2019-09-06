@@ -18,10 +18,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.morrissey.HomeServerConfig
 import io.morrissey.injectedModule
-import io.morrissey.model.IotLocation
-import io.morrissey.model.Switch
-import io.morrissey.model.Schedule
-import io.morrissey.model.SwitchType
+import io.morrissey.model.*
 import io.morrissey.persistence.TestDb
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -50,21 +47,22 @@ class SchedulesRouteTest {
     fun testSchedules() {
         val db = TestDb()
 
-        val schedule = Schedule(
-            startTime = "22:30",
+        val schedule = ScheduleEntity().apply {
+            startTime = "22:30"
             duration = 20
-        )
+        }
+        val scheduleId = db.createSchedule(schedule)
 
-        val valve = Switch(
-            name = "TestValve",
-            type = SwitchType.IRRIGATION_VALVE,
-            location = IotLocation.Frontyard,
-            locationId = 1,
-            schedule = schedule
-        )
-        val valveId = db.createSwitch(valve)
-        val storedValve = db.switch(valveId) ?: throw Exception("Couldn't find valve")
-        val updatedSchedule = storedValve.schedule.copy(daysOn = setOf(TUESDAY))
+//        val valve = Switch(
+//            name = "TestValve",
+//            kind = SwitchKind.IRRIGATION_VALVE,
+//            location = IotLocation.Frontyard,
+//            locationId = 1,
+//            scheduleId = scheduleId
+//        )
+//        val valveId = db.createSwitch(valve)
+//        val storedValve = db.switch(valveId) ?: throw Exception("Couldn't find valve")
+        schedule.daysOn = setOf(TUESDAY)
 
         mockkStatic("io.morrissey.routes.SwitchesKt")
         every { updateSwitch(any(), any()) } returns PhysicalSwitchResult.SuccessResult(listOf())
@@ -87,12 +85,12 @@ class SchedulesRouteTest {
         withTestApplication({
             injectedModule(db, httpClient, serverConfig)
         }) {
-            handleRequest(HttpMethod.Post, "/api/iot/schedules/${updatedSchedule.id}") {
-                setBody(jacksonObjectMapper().writeValueAsString(updatedSchedule))
+            handleRequest(HttpMethod.Post, "/api/iot/schedules/${schedule.id}") {
+                setBody(jacksonObjectMapper().writeValueAsString(schedule))
                 addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             }
         }.apply {
-            assertEquals(setOf(TUESDAY), db.switch(updatedSchedule.id)!!.schedule.daysOn)
+            assertEquals(setOf(TUESDAY), db.schedule(scheduleId)!!.daysOn)
         }
     }
 }

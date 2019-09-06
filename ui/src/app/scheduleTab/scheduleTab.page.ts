@@ -7,6 +7,7 @@ import {DatePickerComponent} from './date-picker.component';
 import {ScheduleStatusView} from '../models/ScheduleStatusView';
 import {ScheduleStatusEnum} from '../models/ScheduleStatusEnum';
 import {DatePipe} from '@angular/common';
+import {SwitchGroup} from "../models/SwitchGroup";
 
 @Component({
     selector: 'app-tab2',
@@ -17,7 +18,7 @@ export class ScheduleTabPage {
 
     public scheduleStatus: ScheduleStatusView = new ScheduleStatusView(ScheduleStatusEnum.Loading, new Date());
 
-    switches: any;
+    switchGroups: SwitchGroup[];
 
     public static dayViewMap: Map<string, string> = new Map([
         ['MONDAY', 'Mon'],
@@ -28,6 +29,109 @@ export class ScheduleTabPage {
         ['SATURDAY', 'Sat'],
         ['SUNDAY', 'Sun']
     ]);
+
+    switchKindDurationOptions(kind: string): any {
+        if (kind == "IRRIGATION_VALVE") {
+            return [
+                {
+                    text: '05',
+                    value: 5
+                },
+                {
+                    text: '10',
+                    value:
+                        10
+                },
+                {
+                    text: '15',
+                    value:
+                        15
+                },
+                {
+                    text: '20',
+                    value:
+                        20
+                },
+                {
+                    text: '25',
+                    value:
+                        25
+                },
+                {
+                    text: '30',
+                    value:
+                        30
+                },
+                {
+                    text: '35',
+                    value:
+                        35
+                },
+                {
+                    text: '40',
+                    value:
+                        40
+                },
+                {
+                    text: '45',
+                    value:
+                        45
+                },
+                {
+                    text: '50',
+                    value:
+                        50
+                },
+                {
+                    text: '55',
+                    value:
+                        55
+                },
+                {
+                    text: '60',
+                    value:
+                        60
+                }
+            ];
+        } else {
+            return [
+                {
+                    text: '15',
+                    value: 15
+                },
+                {
+                    text: '30',
+                    value:
+                        30
+                },
+                {
+                    text: '45',
+                    value:
+                        45
+                },
+                {
+                    text: '1 Hr',
+                    value:
+                        60
+                },
+                {
+                    text: '2 Hr',
+                    value:
+                        120
+                },
+                {
+                    text: '3 Hr',
+                    value:
+                        180
+                },
+                {
+                    text: '4 Hr',
+                    value:
+                        240
+                }
+            ];
+        }
+    };
 
     @ViewChildren(IonSelect) selectGroup: QueryList<IonSelect>;
 
@@ -53,7 +157,7 @@ export class ScheduleTabPage {
         await this.iotService.getSwitches()
             .subscribe(res => {
                 console.log(res);
-                this.switches = res;
+                this.switchGroups = Array.from(SwitchGroup.fromSwitches(res).values());
                 loading.dismiss();
             }, err => {
                 console.log(err);
@@ -98,6 +202,14 @@ export class ScheduleTabPage {
             days = ScheduleTabPage.addDay(days, day);
         });
         return days;
+    }
+
+    public buildDurationString(schedule: Schedule): string {
+        if (schedule.duration < 60) {
+            return schedule.duration.toString() + " min";
+        } else {
+            return (schedule.duration / 60).toString() + " hr"
+        }
     }
 
     public updateDays(schedule: Schedule, event: CustomEvent<any>) {
@@ -328,74 +440,31 @@ export class ScheduleTabPage {
         });
     }
 
-    async openDurationPicker(schedule: Schedule) {
+    async openDurationPicker(schedule: Schedule, switchKind: string) {
+        let durationOptions = this.switchKindDurationOptions(switchKind);
+
         const picker = await this.pickerCtrl.create({
             buttons: [{
                 text: 'Done',
             }],
-            columns: [
-                {
-                    name: 'Duration',
-                    options: [
-                        {
-                            text: '05',
-                            value: 5
-                        },
-                        {
-                            text: '10',
-                            value: 10
-                        },
-                        {
-                            text: '15',
-                            value: 15
-                        },
-                        {
-                            text: '20',
-                            value: 20
-                        },
-                        {
-                            text: '25',
-                            value: 25
-                        },
-                        {
-                            text: '30',
-                            value: 30
-                        },
-                        {
-                            text: '35',
-                            value: 35
-                        },
-                        {
-                            text: '40',
-                            value: 40
-                        },
-                        {
-                            text: '45',
-                            value: 45
-                        },
-                        {
-                            text: '50',
-                            value: 50
-                        },
-                        {
-                            text: '55',
-                            value: 55
-                        },
-                        {
-                            text: '60',
-                            value: 60
-                        }
-                    ]
-                }
-            ]
+            columns: [{
+                name: 'Duration',
+                options: durationOptions
+            }]
         });
 
-        picker.columns[0].selectedIndex = (schedule.duration / 5) - 1;
+        let existingIndex = durationOptions.findIndex(function (value) {
+            return value.value == schedule.duration;
+        });
+        if (existingIndex == -1) {
+            existingIndex = 0
+        }
+        picker.columns[0].selectedIndex = existingIndex;
 
         await picker.present();
         picker.onDidDismiss().then(async data => {
             let durationCol = await picker.getColumn('Duration');
-            schedule.duration = parseInt(durationCol.options[durationCol.selectedIndex].text);
+            schedule.duration = durationCol.options[durationCol.selectedIndex].value;
             this.updateSchedule(schedule);
         });
     }

@@ -1,9 +1,8 @@
 package io.morrissey.schedule
 
 import io.ktor.client.HttpClient
-import io.morrissey.model.Switch
+import io.morrissey.model.*
 import io.morrissey.model.LocationStatus.OK
-import io.morrissey.model.ScheduleStatus
 import io.morrissey.persistence.HomeDao
 import io.morrissey.routes.PhysicalSwitchResult.FailureResult
 import io.morrissey.routes.PhysicalSwitchResult.SuccessResult
@@ -54,7 +53,10 @@ class Scheduler(
                     true
                 } else {
                     log.debug("Schedule was paused, but will now be unpaused as the current date is after the paused until date.")
-                    db.updateScheduleStatus(ScheduleStatus("active", scheduleStatus.pausedUntilDate))
+                    val newStatus = db.scheduleStatus()
+                    newStatus.status = "active"
+                    newStatus.pausedUntilDate = scheduleStatus.pausedUntilDate
+                    db.updateScheduleStatus(newStatus)
                     false
                 }
             } else {
@@ -63,7 +65,11 @@ class Scheduler(
         }
 
         private fun List<Switch>.turnOnIfNeeded() {
-            filter { aSwitch -> aSwitch.schedule.shouldStart(clock) }.forEach { aSwitch -> aSwitch.update(on = true) }
+            filter {
+                    aSwitch -> aSwitch.schedule.shouldStart(clock)
+            }.forEach {
+                    aSwitch -> aSwitch.update(on = true)
+            }
         }
 
         private fun List<Switch>.turnOffIfNeeded() {
@@ -72,21 +78,19 @@ class Scheduler(
 
         private fun Switch.update(on: Boolean) {
             log.debug("updating switch $name to on = $on")
-            val updatedSwitch = copy(on = on)
-            when (val result = updateSwitch(httpClient, updatedSwitch)) {
-                is SuccessResult -> db.updateSwitch(
-                    copy(
-                        on = result.physicalSwitches[0].on,
-                        locationStatus = OK,
-                        locationStatusMessage = ""
-                    )
-                )
-                is FailureResult -> db.updateSwitch(
-                    copy(
-                        locationStatus = result.locationStatus,
-                        locationStatusMessage = result.statusMessage
-                    )
-                )
+            this.on = on
+            when (val result = updateSwitch(httpClient, this)) {
+                is SuccessResult -> {
+                    this.on = result.physicalSwitches[0].on
+                    locationStatus = OK
+                    locationStatusMessage = ""
+                    db.updateSwitch(this)
+                }
+                is FailureResult -> {
+                    locationStatus = result.locationStatus
+                    locationStatusMessage = result.statusMessage
+                    db.updateSwitch(this)
+                }
             }
         }
     }

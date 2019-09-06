@@ -10,7 +10,7 @@ export class SwitchView {
     public buttonColor: string;
     public id: number;
     public name: string;
-    public type: string;
+    public kind: string;
     public location: string;
     public locationId: number;
     public locationStatus: string;
@@ -47,7 +47,7 @@ export class SwitchView {
         return new Switch(
             this.id,
             this.name,
-            this.type,
+            this.kind,
             this.location,
             this.locationId,
             this.locationStatus,

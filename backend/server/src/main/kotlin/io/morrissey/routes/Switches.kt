@@ -17,15 +17,13 @@ import io.ktor.response.respond
 import io.ktor.routing.Route
 import io.morrissey.SwitchPath
 import io.morrissey.Switches
-import io.morrissey.model.IotLocation
-import io.morrissey.model.Switch
-import io.morrissey.model.LocationStatus
-import io.morrissey.model.PhysicalSwitch
+import io.morrissey.model.*
 import io.morrissey.persistence.HomeDao
 import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.IOException
+import java.lang.IllegalArgumentException
 
 val log: Logger = LoggerFactory.getLogger("main")
 
@@ -35,17 +33,19 @@ fun Route.switches(client: HttpClient, db: HomeDao) {
         call.respond(db.switches())
     }
 
-    post<SwitchPath> {
-        val aSwitch = call.receive<Switch>()
+    post<SwitchPath> { path ->
+        val aSwitch = call.receive<SwitchDto>()
         log.info("Received update for switch = $aSwitch")
+        val storedSwitch = db.switch(path.id) ?: throw IllegalArgumentException("Unknown switch id: ${path.id}")
         try {
-            updateSwitch(client, aSwitch)
-            db.updateSwitch(aSwitch)
-            call.respond(aSwitch)
+            storedSwitch.on = aSwitch.on
+            updateSwitch(client, storedSwitch)
+            db.updateSwitch(storedSwitch)
+            call.respond(storedSwitch)
         } catch (e: Exception) {
             log.error("An error occurred while updating the switch status.")
             refreshSwitchState(client, db)
-            call.respond(db.switch(aSwitch.id)!!)
+            call.respond(db.switch(path.id)!!)
         }
     }
 
@@ -82,25 +82,20 @@ fun updateLocalSwitches(
                 if (physicalSwitch.on != storedSwitch.on) {
                     log.info("Updating switch ${storedSwitch.name} to new on value of ${physicalSwitch.on}")
                 }
-                db.updateSwitch(
-                    storedSwitch.copy(
-                        on = physicalSwitch.on,
-                        locationStatus = LocationStatus.OK,
-                        locationStatusMessage = ""
-                    )
-                )
+                storedSwitch.on = physicalSwitch.on
+                storedSwitch.locationStatus = LocationStatus.OK
+                storedSwitch.locationStatusMessage = ""
+                db.updateSwitch(storedSwitch)
+
             } ?: log.error("Could not locate switch in $loc with local id ${physicalSwitch.id}")
         }
         is PhysicalSwitchResult.FailureResult -> {
             storedSwitches.filter { it.location == physicalSwitchResults.location }
                 .forEach { storedSwitch ->
                     log.warn("Setting switch ${storedSwitch.name} location status to ${physicalSwitchResults.locationStatus}.")
-                    db.updateSwitch(
-                        storedSwitch.copy(
-                            locationStatus = physicalSwitchResults.locationStatus,
-                            locationStatusMessage = physicalSwitchResults.statusMessage
-                        )
-                    )
+                    storedSwitch.locationStatus = physicalSwitchResults.locationStatus
+                    storedSwitch.locationStatusMessage = physicalSwitchResults.statusMessage
+                    db.updateSwitch(storedSwitch)
                 }
         }
     }

@@ -1,6 +1,17 @@
 package io.morrissey.model
 
-data class ScheduleStatus(
-    val status: String,
-    val pausedUntilDate: String
-)
+import io.requery.*
+
+@Entity
+interface ScheduleStatus : Persistable {
+    @get:Key
+    var id: Int
+    var status: String
+    var pausedUntilDate: String
+}
+
+class ScheduleStatusDto {
+    var id: Int = 1
+    var status: String = ""
+    var pausedUntilDate: String = ""
+}

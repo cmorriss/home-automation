@@ -4,11 +4,11 @@ export class Switch {
     constructor(
         public id: number,
         public name: string,
-        public type: string,
-        public location: String,
+        public kind: string,
+        public location: string,
         public locationId: number,
-        public locationStatus: String,
-        public locationStatusMessage: String,
+        public locationStatus: string,
+        public locationStatusMessage: string,
         public on: boolean,
         public lastUpdate: number,
         public schedule: Schedule) {

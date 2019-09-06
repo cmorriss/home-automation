@@ -6,7 +6,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.*
 
-class TestDb : HomeDao by HomeH2DB(File("$TEST_DB_DIR/tmp_${Random().nextInt(100000)}")) {
+class TestDb : HomeDao by HomeH2DB("jdbc:h2:file:$TEST_DB_DIR/tmp_${Random().nextInt(100000)}") {
     companion object {
         private const val TEST_DB_DIR = "/tmp/test-dbs"
         private val dbDir = File(TEST_DB_DIR)

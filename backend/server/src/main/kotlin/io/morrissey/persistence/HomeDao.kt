@@ -1,9 +1,6 @@
 package io.morrissey.persistence
 
-import io.morrissey.model.Switch
-import io.morrissey.model.Schedule
-import io.morrissey.model.ScheduleStatus
-import io.morrissey.model.User
+import io.morrissey.model.*
 
 
 interface HomeDao {
@@ -23,7 +20,7 @@ interface HomeDao {
     /////////////////////
     // Switches
     /////////////////////
-    fun createSwitch(aSwitch: Switch): Int
+    fun createSwitch(aSwitch: SwitchEntity): Int
 
     fun updateSwitch(aSwitch: Switch)
 
@@ -33,10 +30,12 @@ interface HomeDao {
 
     fun switchBySchedule(scheduleId: Int): Switch?
 
+    fun switchByGivenId(givenId: String): Switch?
+
     //////////////////
     // SchedulesRoute
     //////////////////
-    fun createSchedule(schedule: Schedule): Int
+    fun createSchedule(schedule: ScheduleEntity): Int
 
     fun updateSchedule(schedule: Schedule)
 
