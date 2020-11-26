@@ -16,36 +16,53 @@ import io.ktor.locations.Location
 import io.ktor.locations.Locations
 import io.ktor.request.path
 import io.ktor.routing.routing
-import io.morrissey.model.PhysicalSwitch
-import io.morrissey.routes.switches
-import io.morrissey.routes.log
+import io.morrissey.iot.server.model.PhysicalControl
+import io.morrissey.iot.server.model.PhysicalSensor
+import io.morrissey.iot.server.routes.controls
+import io.morrissey.iot.server.routes.log
+import io.morrissey.iot.server.routes.sensors
 import org.slf4j.event.Level
 import java.io.File
 import java.io.FileReader
-import java.util.*
+import java.util.Properties
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 const val apiPath = "/api"
 const val iotPath = "$apiPath/iot"
-const val switchesPath = "$iotPath/switches"
-const val switchPath = "$switchesPath/{id}"
+const val controlsPath = "$iotPath/controls"
+const val controlPath = "$controlsPath/{id}"
+const val sensorsPath = "$iotPath/sensors"
+const val sensorPath = "$sensorsPath/{id}"
+const val displaysPath = "$iotPath/displays"
+const val displayPath = "$displaysPath/{id}"
 
-@Location(switchesPath)
-class Switches
+@Location(controlsPath)
+class Controls
 
-@Location(switchPath)
-data class SwitchPath(val id: Int)
+@Location(controlPath)
+data class ControlPath(val id: String)
+
+@Location(sensorsPath)
+class Sensors
+
+@Location(sensorPath)
+data class SensorPath(val id: String)
+
+@Location(displaysPath)
+class Displays
+
+@Location(displayPath)
+data class DisplayPath(val id: String)
 
 const val etcDir = "/etc/home-automation-node"
-val switchProperties = Properties().apply { load(FileReader("$etcDir/switches.properties")) }
+val controlProperties = Properties().apply { load(FileReader("$etcDir/controls.properties")) }
 
 val testing = File("$etcDir/testing").exists()
 
 @Suppress("unused") // Referenced in application.conf
 fun Application.module() {
-    install(Locations) {
-    }
+    install(Locations) {}
 
     install(CallLogging) {
         level = Level.INFO
@@ -63,7 +80,8 @@ fun Application.module() {
     }
 
     routing {
-        switches(knownSwitches)
+        controls(knownControls)
+        sensors(knownSensors)
     }
 }
 
@@ -73,18 +91,31 @@ val gpio = if (!testing) {
     null
 }
 
-val knownSwitches = loadSwitches()
+val knownControls = loadControls()
+val knownSensors = loadSensors()
 
-private fun loadSwitches(): MutableMap<Int, PhysicalSwitch> {
-    log.debug("Loading switches and setting GPIO pins...")
-    return switchProperties.getProperty("switchIds").split(",").map {
-        val gpioPin = RaspiPin.getPinByName("GPIO $it")
-        log.debug("gpioPin for $it found as $gpioPin")
-        val pin = gpio?.provisionDigitalOutputPin(gpioPin, "Switch $it", PinState.HIGH)
-        log.debug("pin $it created with name = ${pin?.name}, ")
-        pin?.setShutdownOptions(true, PinState.HIGH)
+private fun loadControls(): MutableMap<String, PhysicalControl> {
+    log.debug("Loading controls and setting GPIO pins...")
+    return controlProperties.getProperty("controlPins").split(",").map { pinId ->
+        val id = controlProperties.getProperty("$pinId.id")
+        val gpioPin = RaspiPin.getPinByName("GPIO $pinId")
+        log.debug("gpioPin for $pinId found as $gpioPin")
+        val pinState = if (controlProperties.getProperty("$pinId.state") == "LOW") PinState.LOW else PinState.HIGH
+        val pin = gpio?.provisionDigitalOutputPin(gpioPin, "Control $pinId", pinState)
+        log.debug("pin $pinId created with name = ${pin?.name}, ")
+        pin?.setShutdownOptions(true, pinState)
 
-        PhysicalSwitch(it.toInt(), pin)
+        PhysicalControl(id, pinId.toInt(), pin)
     }.associateBy { it.id }.toMutableMap()
+}
 
+private fun loadSensors(): MutableMap<String, PhysicalSensor> {
+    log.debug("Loading sensors...")
+    return controlProperties.getProperty("sensorPins").split(",").map { pinId ->
+        val id = controlProperties.getProperty("$pinId.id")
+        val hasValue = controlProperties.getProperty("$pinId.hasValue") == "true"
+        val gpioPin = RaspiPin.getPinByName("GPIO $pinId")
+        val pin = gpio?.provisionDigitalInputPin(gpioPin, "Sensor $pinId")
+        PhysicalSensor(id, pinId.toInt(), pin, hasValue)
+    }.associateBy { it.id }.toMutableMap()
 }
