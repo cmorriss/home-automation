@@ -12,8 +12,12 @@ const routes: Routes = [
                 loadChildren: '../controlTab/controlTab.module#ControlTabPageModule'
             },
             {
-                path: 'scheduleTab',
-                loadChildren: '../scheduleTab/scheduleTab.module#ScheduleTabPageModule'
+                path: 'automationTab',
+                loadChildren: '../automationTab/automationTab.module#AutomationTabPageModule'
+            },
+            {
+                path: 'analyticsTab',
+                loadChildren: '../analyticsTab/analyticsTab.module#AnalyticsTabPageModule'
             },
             {
                 path: '',

@@ -1,9 +1,9 @@
 import {Component} from '@angular/core';
 import {IotService} from '../iot.service';
 import {LoadingController} from '@ionic/angular';
-import {SwitchView} from '../models/SwitchView';
-import {Schedule} from '../models/Schedule';
-import {SwitchGroup} from "../models/SwitchGroup";
+import {ControlView} from '../viewModels/ControlView';
+import {ControlGroup} from '../dataModels/ControlGroup';
+import {ControlGroupView} from '../viewModels/ControlGroupView';
 
 @Component({
     selector: 'app-tab1',
@@ -12,23 +12,21 @@ import {SwitchGroup} from "../models/SwitchGroup";
 })
 export class ControlTabPage {
 
-    switchGroups: SwitchGroup[] = [];
+    public controlGroups: ControlGroupView[] = [];
 
     constructor(public iotService: IotService, public loadingController: LoadingController) {
     }
 
-    async getSwitches() {
+    async getControlGroups() {
         const loading = await this.loadingController.create({
             message: 'Loading'
         });
         await loading.present();
-        await this.iotService.getSwitches()
+        await this.iotService.getControlGroups()
             .subscribe(res => {
+                console.log('Found these control groups:');
                 console.log(res);
-                var foundSwitchGroups = SwitchGroup.fromSwitches(res).values();
-                console.log("Found these switch groups:");
-                console.log(foundSwitchGroups);
-                this.switchGroups = Array.from(foundSwitchGroups);
+                this.controlGroups = Array.from<ControlGroup>(res).map(cg => new ControlGroupView(cg));
                 loading.dismiss();
             }, err => {
                 console.log(err);
@@ -36,26 +34,12 @@ export class ControlTabPage {
             });
     }
 
-    public updateStatus() {
-
-    }
-
-    public toggleSwitch(aSwitch: SwitchView) {
-        aSwitch.toggle();
-        this.iotService.updateSwitch(aSwitch.toSwitch()).subscribe(
-            response => console.log(response),
-            err => console.log(err)
-        );
-    }
-
-    public updateSchedule(schedule: Schedule) {
-        this.iotService.updateSchedule(schedule).subscribe(
-            response => console.log(response),
-            err => console.log(err)
-        );
+    public toggle(control: ControlView) {
+        control.toggle();
+        this.iotService.updateControl(control.toControl());
     }
 
     ionViewWillEnter() {
-        this.getSwitches();
+        this.getControlGroups();
     }
 }

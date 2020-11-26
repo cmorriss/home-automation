@@ -1,0 +1,68 @@
+<ion-header>
+    <ion-toolbar>
+        <ion-title>
+            Automation
+        </ion-title>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content>
+
+    <ion-item-group *ngFor="let automationGroup of automationGroups">
+        <ion-item-divider></ion-item-divider>
+        <ion-header>
+            <ion-item>
+                <ion-label>{{automationGroup.name}}</ion-label>
+                <ion-item lines="none">
+                    <ion-label position="stacked">Status</ion-label>
+                    <ion-button [color]="automationGroup.status.color"
+                                (click)="openScheduleStatusPicker(automationGroup)">{{automationGroup.status.displayValue}}</ion-button>
+                </ion-item>
+
+                <ion-item lines="none">
+                    <ion-label position="stacked" [hidden]="automationGroup.status.isNotPaused">Until</ion-label>
+                    <ion-button [hidden]="automationGroup.status.isNotPaused" color="primary"
+                                (click)="openResumeDatePicker($event, automationGroup)">{{automationGroup.resumeDate.toLocaleDateString()}}</ion-button>
+                </ion-item>
+            </ion-item>
+        </ion-header>
+        <ion-item-divider></ion-item-divider>
+        <ion-item *ngFor="let automation of automationGroup.scheduledAutomations">
+            <ion-label>{{automation.action.name}}</ion-label>
+            <ion-item lines="none">
+                <ion-label position="stacked">Start Time</ion-label>
+                <ion-button [textContent]="automation.startTime.getTime()"
+                            (click)="openStartTimePicker(automation, automation.startTime)"></ion-button>
+            </ion-item>
+
+            <ion-item lines="none" [hidden]="!automation.useDuration">
+                <ion-label position="stacked">Duration</ion-label>
+                <ion-button [textContent]="buildDurationString(automation)"
+                            (click)="openDurationPicker(automation)"></ion-button>
+
+            </ion-item>
+            <ion-item lines="none" [hidden]="automation.useDuration">
+                <ion-label position="stacked">Stop Time</ion-label>
+                <ion-button [textContent]="automation.stopTime.getTime()"
+                            (click)="openStartTimePicker(automation, automation.stopTime)"></ion-button>
+
+            </ion-item>
+            <ion-item lines="none">
+                <ion-label position="stacked">Scheduled Days</ion-label>
+                <ion-button [textContent]="buildDays(automation)"
+                            (click)="openDaysSelect(automation)"></ion-button>
+
+                <ion-select [placeholder]="automation.name + 'select'" multiple="true" hidden
+                            (ionChange)='updateDays(automation, $event)'>
+                    <ion-select-option value="MONDAY">Monday</ion-select-option>
+                    <ion-select-option value="TUESDAY">Tuesday</ion-select-option>
+                    <ion-select-option value="WEDNESDAY">Wednesday</ion-select-option>
+                    <ion-select-option value="THURSDAY">Thursday</ion-select-option>
+                    <ion-select-option value="FRIDAY">Friday</ion-select-option>
+                    <ion-select-option value="SATURDAY">Saturday</ion-select-option>
+                    <ion-select-option value="SUNDAY">Sunday</ion-select-option>
+                </ion-select>
+            </ion-item>
+        </ion-item>
+    </ion-item-group>
+</ion-content>

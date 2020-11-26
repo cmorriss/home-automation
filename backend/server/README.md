@@ -43,7 +43,7 @@ the UI, although its methods and resources are not UI specific.
 
 The state of the devices is persisted to a file using an embedded [H2](https://www.h2database.com) database.
 The devices have an associated schedule that will turn them off/on at specific times of the day on specific
-days of the week. The scheduling my be paused or stopped.
+days of the week. The scheduling may be paused or stopped.
 
 The basic structure is there to use for other automation needs, but would require modifications at the 
 moment. In the future, I'll look to generalize it a bit, but don't expect some sort of OpenHab competitor any
