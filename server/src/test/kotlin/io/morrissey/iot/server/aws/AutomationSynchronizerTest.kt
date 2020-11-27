@@ -1,7 +1,10 @@
 package io.morrissey.iot.server.aws
 
 import com.google.inject.Guice
-import io.ktor.util.InternalAPI
+import com.google.inject.util.Modules
+import dev.misfitlabs.kotlinguice4.KotlinModule
+import io.ktor.util.*
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -16,7 +19,6 @@ import io.morrissey.iot.server.model.ControlState.OFF
 import io.morrissey.iot.server.model.ControlState.ON
 import io.morrissey.iot.server.model.ControlType.IRRIGATION_VALVE
 import io.morrissey.iot.server.model.EventType.SCHEDULE
-import io.morrissey.iot.server.model.Schedule
 import io.morrissey.iot.server.modules.AwsModule
 import io.morrissey.iot.server.persistence.TestDb
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -26,15 +28,16 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient
-import software.amazon.awssdk.services.cloudwatchevents.model.ListRulesRequest
-import software.amazon.awssdk.services.cloudwatchevents.model.ListRulesResponse
-import software.amazon.awssdk.services.cloudwatchevents.model.ListTargetsByRuleRequest
-import software.amazon.awssdk.services.cloudwatchevents.model.ListTargetsByRuleResponse
-import software.amazon.awssdk.services.cloudwatchevents.model.PutRuleRequest
-import software.amazon.awssdk.services.cloudwatchevents.model.PutTargetsRequest
-import software.amazon.awssdk.services.cloudwatchevents.model.Rule
-import software.amazon.awssdk.services.cloudwatchevents.model.Target
+import software.amazon.awssdk.services.eventbridge.EventBridgeClient
+import software.amazon.awssdk.services.eventbridge.model.ListRulesRequest
+import software.amazon.awssdk.services.eventbridge.model.ListRulesResponse
+import software.amazon.awssdk.services.eventbridge.model.ListTargetsByRuleRequest
+import software.amazon.awssdk.services.eventbridge.model.ListTargetsByRuleResponse
+import software.amazon.awssdk.services.eventbridge.model.PutRuleRequest
+import software.amazon.awssdk.services.eventbridge.model.PutTargetsRequest
+import software.amazon.awssdk.services.eventbridge.model.Rule
+import software.amazon.awssdk.services.eventbridge.model.Target
+import java.time.Instant
 import java.time.ZoneId
 import java.util.function.Consumer
 import java.util.stream.Stream
@@ -46,41 +49,99 @@ class AutomationSynchronizerTest {
     companion object {
         private lateinit var storedControl: Control
         private lateinit var storedControlAction: ControlAction
-        private lateinit var testSchedule: Schedule
+        private lateinit var testAutomation: Automation
         private const val startCron = "30 22 ? * TUE *"
 
+        @Suppress("unused")
         @JvmStatic
         fun calcEndCronTest(): Stream<Arguments> {
             return Stream.of(
-                Arguments.of("20 1 ? * SUN *", 30, "50 1 ? * SUN *"),
-                Arguments.of("20 1 ? * SUN *", 40, "0 2 ? * SUN *"),
-                Arguments.of("20 23 ? * SAT *", 40, "0 0 ? * SUN *"),
-                Arguments.of("20 23 ? * TUE,SAT,SUN *", 110, "10 1 ? * WED,SUN,MON *")
+                Arguments.of(
+                    CalcEndCronParam(
+                        startCron = "20 1 ? * SUN *",
+                        duration = 30,
+                        endCron = "50 1 ? * SUN *"
+                    )
+                ),
+                Arguments.of(
+                    CalcEndCronParam(
+                        startCron = "20 1 ? * SUN *",
+                        duration = 40,
+                        endCron = "0 2 ? * SUN *"
+                    )
+                ),
+                Arguments.of(
+                    CalcEndCronParam(
+                        startCron = "20 23 ? * SAT *",
+                        duration = 40,
+                        endCron = "0 0 ? * SUN *"
+                    )
+                ),
+                Arguments.of(
+                    CalcEndCronParam(
+                        startCron = "20 23 ? * TUE,SAT,SUN *",
+                        duration = 110,
+                        endCron = "10 1 ? * WED,SUN,MON *"
+                    )
+                )
             )
         }
 
+        @Suppress("unused")
         @JvmStatic
         fun convertCronTimeZone(): Stream<Arguments> {
+            // Assumes PST
+            val localHour = if (LOCAL_TIME_ZONE.rules.isDaylightSavings(Instant.now())) 6 else 7
             return Stream.of(
-                Arguments.of("30 23 ? * MON,WED,FRI *", LOCAL_TIME_ZONE, GMT_TIME_ZONE, "30 6 ? * TUE,THU,SAT *"),
-                Arguments.of("30 6 ? * TUE,THU,SAT *", GMT_TIME_ZONE, LOCAL_TIME_ZONE, "30 23 ? * MON,WED,FRI *"),
-                Arguments.of("30 6 ? * MON,WED,FRI *", LOCAL_TIME_ZONE, GMT_TIME_ZONE, "30 13 ? * MON,WED,FRI *"),
-                Arguments.of("30 13 ? * MON,WED,FRI *", GMT_TIME_ZONE, LOCAL_TIME_ZONE, "30 6 ? * MON,WED,FRI *")
+                Arguments.of(
+                    ConvertCronTimeZoneParam(
+                        startCron = "30 23 ? * MON,WED,FRI *",
+                        from = LOCAL_TIME_ZONE,
+                        to = GMT_TIME_ZONE,
+                        expectedCron = "30 $localHour ? * TUE,THU,SAT *"
+                    )
+                ),
+                Arguments.of(
+                    ConvertCronTimeZoneParam(
+                        startCron = "30 $localHour ? * TUE,THU,SAT *",
+                        from = GMT_TIME_ZONE,
+                        to = LOCAL_TIME_ZONE,
+                        expectedCron = "30 23 ? * MON,WED,FRI *"
+                    )
+                ),
+                Arguments.of(
+                    ConvertCronTimeZoneParam(
+                        startCron = "30 $localHour ? * MON,WED,FRI *",
+                        from = LOCAL_TIME_ZONE,
+                        to = GMT_TIME_ZONE,
+                        expectedCron = "30 15 ? * MON,WED,FRI *"
+                    )
+                ),
+                Arguments.of(
+                    ConvertCronTimeZoneParam(
+                        startCron = "30 15 ? * MON,WED,FRI *",
+                        from = GMT_TIME_ZONE,
+                        to = LOCAL_TIME_ZONE,
+                        expectedCron = "30 $localHour ? * MON,WED,FRI *"
+                    )
+                )
             )
         }
+
+        val mockEbClient = mockk<EventBridgeClient>(relaxed = true)
 
         @BeforeAll
         @JvmStatic
         fun setup() {
             TestDb().initialize()
 
-            Guice.createInjector(AwsModule())
-
-            testSchedule = transaction {
-                Schedule.new {
-                    cron = startCron
-                }
-            }
+            Guice.createInjector(
+                Modules.override(AwsModule()).with(object : KotlinModule() {
+                    override fun configure() {
+                        bind<EventBridgeClient>().toInstance(mockEbClient)
+                    }
+                })
+            )
 
             storedControl = transaction {
                 Control.new {
@@ -99,45 +160,46 @@ class AutomationSynchronizerTest {
                 }
             }
 
-            transaction {
+            testAutomation = transaction {
                 Automation.new {
                     actionId = storedControlAction.id.value
                     actionType = CONTROL
-                    eventId = testSchedule.id.value
+                    eventId = -1
                     eventType = SCHEDULE
                     associatedAutomationId = -1
                     status = AutomationStatusEnum.ACTIVE
                     resumeDate = ""
                     name = "TestAutomation"
+                    cron = startCron
                 }
             }
         }
     }
 
     @Test
-    fun createSchedule() {
-        val mockCWClient = mockk<CloudWatchEventsClient>(relaxed = true)
+    fun createScheduledAutomation() {
+        clearMocks(mockEbClient)
         val mockHomeServerConfig = mockk<HomeServerConfig>()
         val mockResponse = mockk<ListRulesResponse>()
         every { mockResponse.rules() }.returns(emptyList())
-        every { mockCWClient.listRules(any<Consumer<ListRulesRequest.Builder>>()) }.returns(mockResponse)
+        every { mockEbClient.listRules(any<Consumer<ListRulesRequest.Builder>>()) }.returns(mockResponse)
         every { mockHomeServerConfig.awsIotTriggerLambdaArn }.returns("")
 
-        val scheduler = AutomationSynchronizer(mockCWClient, mockHomeServerConfig)
+        val synchronizer = AutomationSynchronizer(mockEbClient, mockHomeServerConfig)
 
-        scheduler.synchronize(testSchedule.id.value)
+        synchronizer.synchronize(testAutomation.id.value)
 
         verify(exactly = 1) {
-            mockCWClient.putRule(any<Consumer<PutRuleRequest.Builder>>())
+            mockEbClient.putRule(any<Consumer<PutRuleRequest.Builder>>())
         }
         verify(exactly = 1) {
-            mockCWClient.putTargets(any<Consumer<PutTargetsRequest.Builder>>())
+            mockEbClient.putTargets(any<Consumer<PutTargetsRequest.Builder>>())
         }
     }
 
     @Test
-    fun updateSchedule() {
-        val mockCWClient = mockk<CloudWatchEventsClient>(relaxed = true)
+    fun updateScheduledAutomation() {
+        clearMocks(mockEbClient)
         val mockHomeServerConfig = mockk<HomeServerConfig>()
         val mockResponse = mockk<ListRulesResponse>()
         val mockRule = mockk<Rule>(relaxed = true)
@@ -145,39 +207,52 @@ class AutomationSynchronizerTest {
         val mockTarget = mockk<Target>(relaxed = true)
         every { mockTarget.id() }.returns(storedControl.toTargetId())
         every { mockListTargetsResponse.targets() }.returns(listOf(mockTarget))
-        every { mockRule.name() }.returns(testSchedule.toCloudWatchRuleName())
-        every { mockCWClient.listTargetsByRule(any<Consumer<ListTargetsByRuleRequest.Builder>>()) }.returns(
+        every { mockRule.name() }.returns(testAutomation.toCloudWatchRuleName())
+        every { mockEbClient.listTargetsByRule(any<Consumer<ListTargetsByRuleRequest.Builder>>()) }.returns(
             mockListTargetsResponse
         )
-        every { mockCWClient.listRules(any<Consumer<ListRulesRequest.Builder>>()) }.returns(mockResponse)
+        every { mockEbClient.listRules(any<Consumer<ListRulesRequest.Builder>>()) }.returns(mockResponse)
         every { mockResponse.rules() }.returns(listOf(mockRule))
         every { mockHomeServerConfig.awsIotTriggerLambdaArn }.returns("")
 
-        val scheduler = AutomationSynchronizer(mockCWClient, mockHomeServerConfig)
+        val synchronizer = AutomationSynchronizer(mockEbClient, mockHomeServerConfig)
 
-        scheduler.synchronize(testSchedule.id.value)
+        synchronizer.synchronize(testAutomation.id.value)
 
         verify {
-            mockCWClient.listTargetsByRule(any<Consumer<ListTargetsByRuleRequest.Builder>>())
+            mockEbClient.listRules(any<Consumer<ListRulesRequest.Builder>>())
         }
         verify(exactly = 1) {
-            mockCWClient.putRule(any<Consumer<PutRuleRequest.Builder>>())
+            mockEbClient.putRule(any<Consumer<PutRuleRequest.Builder>>())
         }
         verify(exactly = 1) {
-            mockCWClient.putTargets(any<Consumer<PutTargetsRequest.Builder>>())
+            mockEbClient.putTargets(any<Consumer<PutTargetsRequest.Builder>>())
         }
     }
 
     @ParameterizedTest
     @MethodSource
-    fun convertCronTimeZone(startCron: String, from: ZoneId, to: ZoneId, expectedCron: String) {
-        val convertedCron = startCron.convertCron(from, to)
-        assertEquals(expectedCron, convertedCron)
+    fun convertCronTimeZone(params: ConvertCronTimeZoneParam) {
+        val convertedCron = params.startCron.convertCron(params.from, params.to)
+        assertEquals(params.expectedCron, convertedCron)
     }
 
     @ParameterizedTest
     @MethodSource
-    fun calcEndCronTest(startCron: String, duration: Int, endCron: String) {
-        assertEquals(endCron, calcEndCron(startCron, duration))
+    fun calcEndCronTest(params: CalcEndCronParam) {
+        assertEquals(params.endCron, calcEndCron(params.startCron, params.duration))
     }
 }
+
+data class ConvertCronTimeZoneParam(
+    val startCron: String,
+    val from: ZoneId,
+    val to: ZoneId,
+    val expectedCron: String
+)
+
+data class CalcEndCronParam(
+    val startCron: String,
+    val duration: Int,
+    val endCron: String
+)

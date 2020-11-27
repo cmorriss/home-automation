@@ -99,3 +99,7 @@ plugins.withId("kotlin") {
         }
     }
 }
+
+tasks.test {
+    useJUnitPlatform()
+}

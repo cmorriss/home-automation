@@ -9,10 +9,12 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.IntIdTable
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.time.DayOfWeek
 import javax.inject.Inject
 
 object Automations : IntIdTable("automation") {
     val eventId = integer("event_id")
+    val cron = varchar("cron", 255)
     val eventType = enumeration("event_type", EventType::class)
     val actionId = integer("action_id")
     val actionType = enumeration("action_type", ActionType::class)
@@ -22,7 +24,7 @@ object Automations : IntIdTable("automation") {
     val name = varchar("name", 255)
 }
 
-enum class ActionType { CONTROL, SCHEDULE, AUTOMATION_GROUP }
+enum class ActionType { CONTROL, AUTOMATION, AUTOMATION_GROUP }
 
 enum class EventType { SCHEDULE, THRESHOLD }
 
@@ -30,12 +32,13 @@ class Automation(
     id: EntityID<Int>,
     automationStatusHandlerFactory: AutomationStatusHandlerFactory,
     resumeDateHandlerFactory: ResumeDateHandlerFactory
-) : TransferableEntity<AutomationDto>(id), AutomationState {
+) : TransferableEntity<AutomationDto>(id),
+    AutomationState {
     companion object : IntEntityClass<Automation>(Automations, Automation::class.java) {
         @Inject
         private lateinit var injector: Injector
 
-        override fun createInstance(entityId: EntityID<Int>, row: ResultRow?) : Automation {
+        override fun createInstance(entityId: EntityID<Int>, row: ResultRow?): Automation {
             return Automation(
                 entityId,
                 injector.getInstance(AutomationStatusHandlerFactory::class.java),
@@ -45,6 +48,7 @@ class Automation(
     }
 
     var eventId by Automations.eventId
+    var cron by Automations.cron
     var eventType by Automations.eventType
     var actionId by Automations.actionId
     var actionType by Automations.actionType
@@ -59,8 +63,19 @@ class Automation(
 
     override fun toDto(): AutomationDto {
         return transaction {
+            val (time, daysOfWeek, dateTime) = convertFromCron(cron)
             AutomationDto(
-                id.value, eventId, eventType, actionId, actionType, associatedAutomationId, status, resumeDate
+                id.value,
+                eventId,
+                time,
+                daysOfWeek,
+                dateTime,
+                eventType,
+                actionId,
+                actionType,
+                associatedAutomationId,
+                status,
+                resumeDate
             )
         }
     }
@@ -69,6 +84,9 @@ class Automation(
 data class AutomationDto(
     override val id: Int,
     val eventId: Int,
+    val time: String,
+    val daysOfTheWeek: Set<CronDayOfWeek>,
+    val dateTime: String,
     val eventType: EventType,
     val actionId: Int,
     val actionType: ActionType,
@@ -81,6 +99,7 @@ data class AutomationDto(
         return transaction {
             Automation.new {
                 eventId = this@AutomationDto.eventId
+                cron = convertToCron(this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime)
                 eventType = this@AutomationDto.eventType
                 actionId = this@AutomationDto.actionId
                 actionType = this@AutomationDto.actionType
@@ -103,6 +122,25 @@ data class AutomationDto(
                 status = this@AutomationDto.status
                 resumeDate = this@AutomationDto.resumeDate
             }
+        }
+    }
+}
+
+enum class CronDayOfWeek {
+    MON, TUE, WED, THU, FRI, SAT, SUN;
+    fun inc(): CronDayOfWeek {
+        return if (ordinal < values().size - 1) {
+            values()[ordinal + 1]
+        } else {
+            values().first()
+        }
+    }
+
+    fun dec(): CronDayOfWeek {
+        return if (ordinal > 0) {
+            values()[ordinal - 1]
+        } else {
+            values().last()
         }
     }
 }

@@ -4,18 +4,11 @@ import io.morrissey.iot.server.aws.Controller
 import io.morrissey.iot.server.aws.AutomationSynchronizer
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.*
+import io.morrissey.iot.server.model.CronDayOfWeek.*
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.time.DayOfWeek
-import java.time.DayOfWeek.FRIDAY
-import java.time.DayOfWeek.MONDAY
-import java.time.DayOfWeek.SATURDAY
-import java.time.DayOfWeek.SUNDAY
-import java.time.DayOfWeek.THURSDAY
-import java.time.DayOfWeek.TUESDAY
-import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -27,11 +20,12 @@ fun homeIot(controller: Controller, synchronizer: AutomationSynchronizer, automa
 
 class HomeAutomationDef(val controller: Controller, val synchronizer: AutomationSynchronizer)
 
+
 class AutomationGroupDef(val name: String) {
     val automations: MutableSet<Automation> = mutableSetOf()
-    val EVERYDAY = DayOfWeek.values().toSet()
-    val WEEKDAYS = setOf(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY)
-    val WEEKENDS = setOf(SUNDAY, SATURDAY)
+    val EVERYDAY = values().toSet()
+    val WEEKDAYS = setOf(MON, TUE, WED, THU, FRI)
+    val WEEKENDS = setOf(SUN, SAT)
 }
 
 fun HomeAutomationDef.control(thingName: String, name: String, type: ControlType): Control {
@@ -86,10 +80,8 @@ fun HomeAutomationDef.automationGroup(name: String, groupCreate: AutomationGroup
         }
         log.info("Created new automation group:")
         automationGroup.logState()
-        log.info("Adding ${automationGroup.items.size} new schedules for automation group $name...")
-        automationGroup.items.filter { it.eventType == EventType.SCHEDULE }
-            .map { Schedule[it.eventId] }
-            .forEach(synchronizer::create)
+        log.info("Adding ${automationGroup.items.size} new automations for automation group $name...")
+        automationGroup.items.forEach(synchronizer::create)
     } else {
         log.info("Found existing automation group:")
         automationGroup.logState()
@@ -100,17 +92,11 @@ fun HomeAutomationDef.automationGroup(name: String, groupCreate: AutomationGroup
             existing.actionId == new.actionId && existing.eventId == new.eventId
         }
         log.info("Adding ${toAdd.size} new schedules for automation group $name...")
-        toAdd.filter { it.eventType == EventType.SCHEDULE }
-            .map { Schedule[it.eventId] }
-            .forEach(synchronizer::create)
+        toAdd.forEach(synchronizer::create)
         log.info("Pulling ${toKeep.size} schedules for automation group $name...")
-        toKeep.filter { it.eventType == EventType.SCHEDULE }
-            .map { Schedule[it.eventId] }
-            .forEach(synchronizer::pull)
+        toKeep.forEach(synchronizer::pull)
         log.info("Removing ${toRemove.size} schedules for automation group $name...")
-        toRemove.filter { it.eventType == EventType.SCHEDULE }
-            .map { Schedule[it.eventId] }
-            .forEach(synchronizer::remove)
+        toRemove.forEach(synchronizer::remove)
         automationGroup.items = automationGroup.items.minus(toRemove).plus(toAdd)
     }
     return automationGroup
@@ -169,25 +155,21 @@ fun AutomationGroupDef.scheduledAutomation(
 fun scheduledAutomation(action: Action<*>, cron: String): Automation {
     var automation = Automation.find { Automations.actionId eq action.id.value }.firstOrNull()
     if (automation == null) {
-        val schedule = Schedule.new {
-            this.cron = cron
-//            this.pausedUntil = ISODateTimeFormat.dateTimeNoMillis().print(Instant.now())
-//            this.status = AutomationStatusEnum.ACTIVE
-        }
         automation = Automation.new {
             this.actionId = action.id.value
             this.actionType = when (action) {
                 is ControlAction -> ActionType.CONTROL
                 is AutomationGroupAction -> ActionType.AUTOMATION_GROUP
-                is ScheduleAction -> ActionType.SCHEDULE
+                is AutomationAction -> ActionType.AUTOMATION
                 else -> throw IllegalArgumentException("Unknown action type found for class ${action.javaClass.canonicalName}.")
             }
-            this.eventId = schedule.id.value
+            this.cron = cron
+            this.eventId = -1
             this.eventType = EventType.SCHEDULE
             this.associatedAutomationId = -1
             this.status = AutomationStatusEnum.ACTIVE
             this.resumeDate = ""
-            this.name = "Automation for action ${action.id.value} and event ${schedule.id.value}"
+            this.name = "Automation for action ${action.id.value} and schedule $cron"
         }
     }
     return automation
@@ -231,8 +213,8 @@ private fun String.shiftDayForward(): String {
         this@shiftDayForward.split(' ').forEachIndexed { i, part ->
             if (i != 0) append(' ')
             if (i == WEEKDAY_CRON_INDEX) {
-                append(part.replace(Regex("\\d")) { matchResult: MatchResult ->
-                    matchResult.value.toInt().shiftDayForward().toString()
+                append(part.replace(Regex("\\w\\w\\w")) { matchResult: MatchResult ->
+                    CronDayOfWeek.valueOf(matchResult.value).inc().name
                 })
             } else {
                 append(part)

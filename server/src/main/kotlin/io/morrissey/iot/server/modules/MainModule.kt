@@ -37,7 +37,6 @@ class MainModule(
         bind<ApplicationDatabase>().to<ApplicationDatabaseProd>().asEagerSingleton()
         bind<HomeIotLayout>().to<HomeIotLayoutImpl>()
         bind<HomeServerApplicationStartup>().asEagerSingleton()
-        bind<ScheduleRoutes>().asEagerSingleton()
 //        bind<AppRedirectRoute>().asEagerSingleton()
         bind<ControlGroupRoutes>().asEagerSingleton()
         bind<ControlsRoutes>().asEagerSingleton()
@@ -49,7 +48,7 @@ class MainModule(
         bind<MetricRoutes>().asEagerSingleton()
         bind<MetricDataRoute>().asEagerSingleton()
         bind<AutomationGroupActionRoutes>().asEagerSingleton()
-        bind<ScheduleActionRoutes>().asEagerSingleton()
+        bind<AutomationActionRoutes>().asEagerSingleton()
 
         install(AwsModule())
 

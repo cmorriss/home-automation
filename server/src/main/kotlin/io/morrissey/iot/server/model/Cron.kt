@@ -4,8 +4,6 @@ import com.cronutils.descriptor.CronDescriptor
 import com.cronutils.model.definition.CronDefinition
 import com.cronutils.model.definition.CronDefinitionBuilder
 import com.cronutils.parser.CronParser
-import io.morrissey.iot.server.aws.toDayOfWeek
-import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -41,7 +39,7 @@ const val MONTH_FIELD = 3
 const val DAY_OF_WEEK_FIELD = 4
 const val YEAR_FIELD = 5
 
-data class CronConversion(val time: String, val daysOfWeek: Set<DayOfWeek>, val dateTime: String)
+data class CronConversion(val time: String, val daysOfWeek: Set<CronDayOfWeek>, val dateTime: String)
 
 fun convertFromCron(cronExpression: String): CronConversion {
     val cronParts = cronExpression.split(' ')
@@ -59,11 +57,11 @@ fun convertFromCron(cronExpression: String): CronConversion {
     }
 }
 
-fun String.toDaysOfWeek(): Set<DayOfWeek> {
-    return split(',').map { toDayOfWeek(it) }.toSet()
+fun String.toDaysOfWeek(): Set<CronDayOfWeek> {
+    return split(',').map { CronDayOfWeek.valueOf(it) }.toSet()
 }
 
-fun convertToCron(time: String, daysOfWeek: Set<DayOfWeek>, dateTime: String): String {
+fun convertToCron(time: String, daysOfWeek: Set<CronDayOfWeek>, dateTime: String): String {
     return if (time.isBlank() && daysOfWeek.isEmpty() && dateTime.isNotBlank()) {
         convertToCron(dateTime)
     } else if (time.isNotBlank() && daysOfWeek.isNotEmpty() && dateTime.isBlank()) {
@@ -73,7 +71,7 @@ fun convertToCron(time: String, daysOfWeek: Set<DayOfWeek>, dateTime: String): S
     }
 }
 
-fun convertToCron(time: String, daysOfWeek: Set<DayOfWeek>): String {
+fun convertToCron(time: String, daysOfWeek: Set<CronDayOfWeek>): String {
     val (hour, minute) = time.split(':').run { this[0] to this[1] }
     val cronDaysOfWeek = daysOfWeek.joinToString(",") { it.name.subSequence(0, 3) }
     return "$minute $hour ? * $cronDaysOfWeek *"

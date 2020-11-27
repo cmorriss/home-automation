@@ -19,7 +19,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
-import software.amazon.awssdk.services.cloudwatchevents.CloudWatchEventsClient
+import software.amazon.awssdk.services.eventbridge.EventBridgeClient
 import java.net.URI
 import java.util.UUID
 
@@ -64,11 +64,11 @@ class AwsModule : KotlinModule() {
 
     @Provides
     @Singleton
-    fun cwEventsClient(
+    fun ebEventsClient(
         homeServerConfig: HomeServerConfig,
         credentialsProvider: AwsCredentialsProvider
-    ): CloudWatchEventsClient {
-        return CloudWatchEventsClient.builder()
+    ): EventBridgeClient {
+        return EventBridgeClient.builder()
             .region(Region.US_WEST_2)
             .credentialsProvider(credentialsProvider)
             .endpointOverride(

@@ -12,22 +12,31 @@ import io.ktor.server.testing.withTestApplication
 import io.mockk.every
 import io.mockk.mockk
 import io.morrissey.iot.server.HomeServerConfig
-import io.morrissey.iot.server.model.Schedule
+import io.morrissey.iot.server.model.ActionType
+import io.morrissey.iot.server.model.Automation
+import io.morrissey.iot.server.model.AutomationStatusEnum
+import io.morrissey.iot.server.model.EventType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.slf4j.event.Level
-import java.time.DayOfWeek.TUESDAY
 import kotlin.test.assertEquals
 
-class SchedulesRouteTest {
+class AutomationRouteTest {
     @Test
     @Disabled
-    fun testSchedules() {
+    fun testAutomations() {
 
-        val schedule = transaction {
-            Schedule.new {
+        val automation = transaction {
+            Automation.new {
+                eventId = -1
+                eventType = EventType.SCHEDULE
                 cron = "30 22 ? * 2 *"
+                actionId = 1
+                actionType = ActionType.CONTROL
+                associatedAutomationId = -1
+                status = AutomationStatusEnum.ACTIVE
+                resumeDate = ""
             }
         }
 
@@ -41,12 +50,12 @@ class SchedulesRouteTest {
         withTestApplication({
                                 //injectedModule(httpClient, serverConfig)
                             }) {
-            handleRequest(HttpMethod.Post, "/api/iot/schedules/${transaction { schedule.id }}") {
-                setBody(jacksonObjectMapper().writeValueAsString(transaction { schedule.toDto() }))
+            handleRequest(HttpMethod.Post, "/api/iot/automations/${transaction { automation.id }}") {
+                setBody(jacksonObjectMapper().writeValueAsString(transaction { automation.toDto() }))
                 addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             }
         }.apply {
-            assertEquals("30 22 ? * 2 *", transaction { Schedule[schedule.id].cron })
+            assertEquals("30 22 ? * 2 *", transaction { Automation[automation.id].cron })
         }
     }
 }

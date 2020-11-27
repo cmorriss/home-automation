@@ -28,8 +28,7 @@ fun createProdDbTables() {
             Controls,
             ControlActions,
             ControlGroups,
-            Schedules,
-            ScheduleActions,
+            AutomationActions,
             Metrics,
             Users
         )
