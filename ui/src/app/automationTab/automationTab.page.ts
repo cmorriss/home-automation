@@ -36,13 +36,13 @@ export class AutomationTabPage {
     }
 
     public static dayViewMap: Map<string, { short: string, order: number }> = new Map([
-        ['SUNDAY', {short: 'S', order: 0}],
-        ['MONDAY', {short: 'M', order: 1}],
-        ['TUESDAY', {short: 'T', order: 2}],
-        ['WEDNESDAY', {short: 'W', order: 3}],
-        ['THURSDAY', {short: 'Th', order: 4}],
-        ['FRIDAY', {short: 'F', order: 5}],
-        ['SATURDAY', {short: 'Sa', order: 6}]
+        ['SUN', {short: 'S', order: 0}],
+        ['MON', {short: 'M', order: 1}],
+        ['TUE', {short: 'T', order: 2}],
+        ['WED', {short: 'W', order: 3}],
+        ['THU', {short: 'Th', order: 4}],
+        ['FRI', {short: 'F', order: 5}],
+        ['SAT', {short: 'Sa', order: 6}]
     ]);
 
     @ViewChildren(IonSelect) selectGroup: QueryList<IonSelect>;

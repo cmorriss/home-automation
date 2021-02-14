@@ -15,6 +15,7 @@ import io.morrissey.iot.server.model.HOUR_FIELD
 import org.jetbrains.exposed.sql.transactions.transaction
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient
 import software.amazon.awssdk.services.eventbridge.model.ListRulesRequest
+import software.amazon.awssdk.services.eventbridge.model.ListTargetsByRuleRequest
 import software.amazon.awssdk.services.eventbridge.model.Rule
 import software.amazon.awssdk.services.eventbridge.model.Target
 import java.time.Instant
@@ -28,6 +29,7 @@ class AutomationSynchronizer @Inject constructor(
     private val ebClient: EventBridgeClient, private val homeServerConfig: HomeServerConfig
 ) {
     fun synchronize(automationId: Int) {
+        log.info("Synchronizing automation $automationId...")
         transaction {
             val automation = Automation[automationId]
             val existingRule = getRule(automation)
@@ -40,7 +42,7 @@ class AutomationSynchronizer @Inject constructor(
     }
 
     fun remove(automation: Automation) {
-        val ruleName = automation.toCloudWatchRuleName()
+        val ruleName = automation.toEventBridgeRuleName()
         log.info("Removing automation with rule name $ruleName from cloud watch.")
         val target = findExistingEventTarget(ruleName)
         ebClient.removeTargets {
@@ -53,7 +55,7 @@ class AutomationSynchronizer @Inject constructor(
     }
 
     fun create(automation: Automation) {
-        val ruleName = automation.toCloudWatchRuleName()
+        val ruleName = automation.toEventBridgeRuleName()
         log.info("Creating schedule with rule name $ruleName in cloud watch.")
         val eventTarget = buildEventTarget(automation, homeServerConfig)
 
@@ -75,7 +77,7 @@ class AutomationSynchronizer @Inject constructor(
         if (rule != null) {
             automation.cron = rule.scheduleExpression().fromCloudWatchExpression()
         } else {
-            log.warn("Attempted to pull the schedule with rule name ${automation.toCloudWatchRuleName()} but it was not found!")
+            log.warn("Attempted to pull the schedule with rule name ${automation.toEventBridgeRuleName()} but it was not found!")
         }
     }
 
@@ -85,6 +87,7 @@ class AutomationSynchronizer @Inject constructor(
     }
 
     fun setEnabled(automation: Automation, enabled: Boolean) {
+        log.info("Setting automation with id ${automation.id.value} to $enabled.")
         transaction {
             val rule = getRule(automation)
             if (rule != null) {
@@ -119,14 +122,13 @@ class AutomationSynchronizer @Inject constructor(
     }
 
     private fun getRule(automation: Automation): Rule? {
-        val scheduleRuleName = automation.toEventBridgeRuleName()
+        val automationRuleName = automation.toEventBridgeRuleName()
         return ebClient.listRules {
-            it.namePrefix(scheduleRuleName)
-        }.rules().singleOrNull { it.name() == scheduleRuleName }
+            it.namePrefix(automationRuleName)
+        }.rules().singleOrNull { it.name() == automationRuleName }
     }
 
     private fun updateAutomation(automation: Automation, rule: Rule) {
-        val eventTarget = buildEventTarget(automation, homeServerConfig)
         val cronExpression = automation.cron.toCloudWatchExpression()
         if (rule.scheduleExpression() != cronExpression) {
             ebClient.putRule {
@@ -134,20 +136,22 @@ class AutomationSynchronizer @Inject constructor(
                 it.scheduleExpression(cronExpression)
             }
         }
+        removeAllTargets(rule.name())
+        val eventTarget = buildEventTarget(automation, homeServerConfig)
         ebClient.putTargets {
             it.rule(rule.name())
             it.targets(eventTarget)
         }
     }
 
-    private fun findTargetsToUpdate(
-        eventTargets: Map<String, Target>, existingEventTargets: Map<String, Target>
-    ): Collection<Target> {
-        return eventTargets.filter { (id, target) ->
-            val existingTarget = existingEventTargets[id]
-                ?: throw RuntimeException("Unable to locate existing event target with id $id")
-            existingTarget.input() != target.input() || existingTarget.arn() != target.arn()
-        }.values
+    private fun removeAllTargets(ruleName: String) {
+        val existingTargets = ebClient.listTargetsByRule { it.rule(ruleName) }
+        if (existingTargets.hasTargets()) {
+            ebClient.removeTargets {
+                it.ids(existingTargets.targets().map(Target::id))
+                it.rule(ruleName)
+            }
+        }
     }
 
     private fun findExistingEventTarget(ruleName: String) =
@@ -181,7 +185,7 @@ class AutomationSynchronizer @Inject constructor(
 }
 
 fun Automation.toEventBridgeRuleName(): String {
-    return "${id}_automation"
+    return "Automation_${id.value}"
 }
 
 /**
@@ -228,8 +232,4 @@ fun ControlAction.toTarget(homeServerConfig: HomeServerConfig): Target {
 
 fun Control.toTargetId(): String {
     return "CONTROL_${id}_$thingName"
-}
-
-fun Automation.toCloudWatchRuleName(): String {
-    return "Automation_${id.value}"
 }

@@ -1,5 +1,6 @@
 package io.morrissey.iot.server.model
 
+import io.morrissey.iot.server.log
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -33,4 +34,24 @@ class ControlGroup(id: EntityID<Int>) : RemoteThingGroup<Control, ControlGroup, 
 
 data class ControlGroupDto(
     override val id: Int, override val name: String, override val items: List<ControlDto>
-) : RemoteThingGroupDto<ControlDto, ControlGroup>()
+) : RemoteThingGroupDto<ControlDto, ControlGroup>() {
+    override fun create(): ControlGroup {
+        log.info("Creating control group with name $name, items size is ${items.size}")
+        return transaction {
+            ControlGroup.new {
+                name = this@ControlGroupDto.name
+                items = this@ControlGroupDto.items.map { Control[it.id] }
+            }
+        }
+    }
+
+    override fun update(): ControlGroup {
+        log.info("Updating control group with name $name, items size is ${items.size}")
+        return transaction {
+            ControlGroup[this@ControlGroupDto.id].apply {
+                name = this@ControlGroupDto.name
+                items = this@ControlGroupDto.items.map { Control[it.id] }
+            }
+        }
+    }
+}

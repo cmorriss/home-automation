@@ -36,8 +36,8 @@ const val controlActionsPath = "$iotPath/control-actions"
 const val controlActionPath = "$controlActionsPath/{id}"
 const val automationActionsPath = "$iotPath/automation-actions"
 const val automationActionPath = "$automationActionsPath/{id}"
-const val sensorThresholdsPath = "$iotPath/thresholds"
-const val sensorThresholdPath = "$sensorThresholdsPath/{id}"
+const val thresholdsPath = "$iotPath/thresholds"
+const val thresholdPath = "$thresholdsPath/{id}"
 const val automationsPath = "$iotPath/automations"
 const val automationPath = "$automationsPath/{id}"
 const val automationGroupsPath = "$iotPath/automation-groups"
@@ -93,6 +93,12 @@ class AutomationGroupActionsPath
 
 @Location(automationGroupActionPath)
 class AutomationGroupActionPath(override val id: Int) : IdPath
+
+@Location(thresholdsPath)
+class ThresholdsPath
+
+@Location(thresholdPath)
+class ThresholdPath(override val id: Int) : IdPath
 
 @Location(metricsPath)
 class MetricsPath

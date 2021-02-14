@@ -14,14 +14,14 @@ import kotlin.test.assertEquals
 class TestAutomationDef {
     @Test
     fun testCalcEndTime() {
-        assertEquals("01:30", calcEndCron("01:00", 30))
-        assertEquals("00:25", calcEndCron("23:25", 60))
-        assertEquals("01:05", calcEndCron("23:25", 100))
+        assertEquals("30 1", calcEndCron("0 1", 30))
+        assertEquals("25 0", calcEndCron("25 23", 60))
+        assertEquals("5 1", calcEndCron("25 23", 100))
     }
 
     @Test
     fun testPopulateDbTables() {
-        TestDb()
+        TestDb().initialize()
         val controller: Controller = mockk(relaxed = true)
         val synchronizer: AutomationSynchronizer = mockk(relaxed = true)
         val layout = HomeIotLayoutImpl(controller, synchronizer)
@@ -30,6 +30,5 @@ class TestAutomationDef {
         transaction { val automationGroups = AutomationGroup.find { Op.TRUE }
             print(automationGroups.count())
         }
-
     }
 }

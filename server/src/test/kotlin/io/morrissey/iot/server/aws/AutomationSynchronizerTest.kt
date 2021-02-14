@@ -207,7 +207,8 @@ class AutomationSynchronizerTest {
         val mockTarget = mockk<Target>(relaxed = true)
         every { mockTarget.id() }.returns(storedControl.toTargetId())
         every { mockListTargetsResponse.targets() }.returns(listOf(mockTarget))
-        every { mockRule.name() }.returns(testAutomation.toCloudWatchRuleName())
+        every { mockListTargetsResponse.hasTargets() }.returns(true)
+        every { mockRule.name() }.returns(testAutomation.toEventBridgeRuleName())
         every { mockEbClient.listTargetsByRule(any<Consumer<ListTargetsByRuleRequest.Builder>>()) }.returns(
             mockListTargetsResponse
         )

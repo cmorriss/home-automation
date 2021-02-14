@@ -30,6 +30,7 @@ fun createProdDbTables() {
             ControlGroups,
             AutomationActions,
             Metrics,
+            Thresholds,
             Users
         )
     }

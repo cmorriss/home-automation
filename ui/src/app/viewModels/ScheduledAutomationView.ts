@@ -1,4 +1,3 @@
-import {Schedule} from '../dataModels/Schedule';
 import {ControlType} from '../dataModels/Control';
 import {TimeView} from './TimeView';
 import {ActionType, Automation, EventType} from '../dataModels/Automation';
@@ -6,28 +5,24 @@ import {AutomationView} from './AutomationView';
 import {Action} from '../dataModels/Action';
 import {AutomationContainer} from './AutomationContainer';
 import {AutomationStatusEnum} from './AutomationStatusEnum';
-import {Event} from '../dataModels/Event';
 import {ControlAction} from '../dataModels/ControlAction';
 
 export class ScheduledAutomationView implements AutomationView {
     constructor(
         private readonly existingStartAutomation: Automation,
-        private readonly existingStartSchedule: Schedule,
         private readonly existingStartAction: Action,
         private readonly existingStopAutomation: Automation,
-        private readonly existingStopSchedule: Schedule,
         private readonly existingStopAction: Action
     ) {
         this.id = existingStartAutomation.id;
         this.action = existingStartAction;
-        this.event = existingStartSchedule;
         // Will eventually make this more generic. May be part of a broader config driven concept of a view.
         this.useDuration = this.action.type.valueOf() === ActionType.CONTROL.valueOf()
             && (this.action as ControlAction).control.type.valueOf() === ControlType.IRRIGATION_VALVE.valueOf();
         this.name = this.action.name;
-        this.startTime = new TimeView(existingStartSchedule.time);
-        this.stopTime = new TimeView(existingStopSchedule.time);
-        this.daysOfTheWeek = existingStartSchedule.daysOfTheWeek;
+        this.startTime = new TimeView(existingStartAutomation.time);
+        this.stopTime = new TimeView(this.existingStopAutomation.time);
+        this.daysOfTheWeek = existingStartAutomation.daysOfTheWeek;
         this.duration = ScheduledAutomationView.calcDuration(this.startTime, this.stopTime);
         this.status = existingStartAutomation.status;
         this.resumeDate = new Date(existingStartAutomation.resumeDate);
@@ -35,7 +30,6 @@ export class ScheduledAutomationView implements AutomationView {
 
     public id: number;
     public action: Action;
-    public event: Event;
     public name: string;
     public startTime: TimeView;
     public stopTime: TimeView;
@@ -99,15 +93,13 @@ export class ScheduledAutomationView implements AutomationView {
                 actionType: existing.actionType,
                 associatedAutomationId: existing.associatedAutomationId,
                 status: existing.status,
-                resumeDate: existing.resumeDate
-            }),
-            existingAction,
-            Object.assign(new Schedule(), {
-                id: existing.eventId,
+                resumeDate: existing.resumeDate,
                 dateTime: '', // TODO: Figure out where this can be used or remove if not needed
                 daysOfTheWeek: this.daysOfTheWeek,
                 time
-            })
+            }),
+            existingAction,
+            null
         );
     }
 }

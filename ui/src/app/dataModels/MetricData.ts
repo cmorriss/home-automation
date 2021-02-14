@@ -7,6 +7,8 @@ export class MetricData {
     public metric: Metric;
     @jsonArrayMember(Number)
     public values: number[];
+    @jsonArrayMember(String)
+    public timestamps: string[];
     @jsonMember
     public startTime: string;
     @jsonMember

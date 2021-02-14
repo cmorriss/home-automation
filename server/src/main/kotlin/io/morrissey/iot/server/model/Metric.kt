@@ -12,6 +12,7 @@ object Metrics : IntIdTable("metric") {
     val externalNamespace = varchar("external_namespace", 255)
     val period = integer("period")
     val statistic = enumeration("statistic", Metric.Statistic::class)
+    val dimensions = varchar("dimensions", 1024)
 }
 
 class Metric(
@@ -24,6 +25,18 @@ class Metric(
     var externalNamespace by Metrics.externalNamespace
     var period by Metrics.period
     var statistic by Metrics.statistic
+    var dimensions: List<MetricDimension> by Metrics.dimensions.transform({ dimensions ->
+                                                                              dimensions.joinToString(";") {
+                                                                                  "${it.name}:${it.value}"
+                                                                              }
+                                                                          }, { dimensionsString ->
+                                                                              dimensionsString.split(";")
+                                                                                  .filter { it.isNotBlank() }
+                                                                                  .map {
+                                                                                      val components = it.split(":")
+                                                                                      MetricDimension(components[0], components[1])
+                                                                                  }
+                                                                          })
 
     override fun toDto(): MetricDto {
         return transaction {
@@ -33,7 +46,8 @@ class Metric(
                 externalName = externalName,
                 externalNamespace = externalNamespace,
                 period = period,
-                statistic = statistic
+                statistic = statistic,
+                dimensions = dimensions
             )
         }
     }
@@ -57,7 +71,8 @@ data class MetricDto(
     val externalName: String,
     val externalNamespace: String,
     val period: Int,
-    val statistic: Metric.Statistic
+    val statistic: Metric.Statistic,
+    val dimensions: List<MetricDimension>
 ) : EntityDto<Metric>() {
     override fun create(): Metric {
         return transaction {
@@ -67,6 +82,7 @@ data class MetricDto(
                 externalNamespace = this@MetricDto.externalNamespace
                 period = this@MetricDto.period
                 statistic = this@MetricDto.statistic
+                dimensions = this@MetricDto.dimensions
             }
         }
     }
@@ -80,6 +96,7 @@ data class MetricDto(
                 externalNamespace = this@MetricDto.externalNamespace
                 period = this@MetricDto.period
                 statistic = this@MetricDto.statistic
+                dimensions = this@MetricDto.dimensions
             }
         }
     }

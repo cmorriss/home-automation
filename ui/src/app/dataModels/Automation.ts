@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {jsonMember, jsonObject} from 'typedjson';
+import {jsonArrayMember, jsonMember, jsonObject} from 'typedjson';
 import {AutomationStatusEnum} from '../viewModels/AutomationStatusEnum';
 
 @jsonObject
@@ -20,6 +20,12 @@ export class Automation {
     public status: AutomationStatusEnum;
     @jsonMember
     public resumeDate: string;
+    @jsonArrayMember(String)
+    public daysOfTheWeek: string[];
+    @jsonMember
+    public time: string;
+    @jsonMember
+    public dateTime: string;
 }
 
 export enum EventType {
@@ -27,5 +33,5 @@ export enum EventType {
 }
 
 export enum ActionType {
-    CONTROL = 'CONTROL', AUTOMATION_GROUP = 'AUTOMATION_GROUP', SCHEDULE = 'SCHEDULE'
+    CONTROL = 'CONTROL', AUTOMATION_GROUP = 'AUTOMATION_GROUP', AUTOMATION = 'AUTOMATION'
 }

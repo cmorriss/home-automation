@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
-    kotlin("jvm") version "1.4.10"
+    kotlin("jvm") version "1.4.30"
     application
 }
 
@@ -45,7 +45,7 @@ dependencies {
     compile("software.amazon.awssdk:eventbridge")
     compile("software.amazon.awssdk:cloudwatch")
     compile("software.amazon.awssdk:iotdataplane")
-    compile("com.amazonaws:aws-iot-device-sdk-java:$awsIotDeviceSdkVersion")
+    compile("software.amazon.awssdk.iotdevicesdk:aws-iot-device-sdk:$awsIotDeviceSdkVersion")
     compile("com.google.inject:guice:$guiceVersion")
     compile("com.google.inject.extensions:guice-assistedinject:$guiceVersion")
     compile("dev.misfitlabs.kotlinguice4:kotlin-guice:$kotlinGuiceVersion")
@@ -81,7 +81,7 @@ dependencies {
     testCompile("org.slf4j:slf4j-simple:$slf4jVersion")
     testCompile("io.ktor:ktor-server-tests:$ktorVersion")
     testCompile("io.ktor:ktor-server-test-host:$ktorVersion")
-    testCompile("io.ktor:ktor-client-mock:$ktorVersion")
+    testCompile("io.ktor:ktor-client-mock-jvm:$ktorVersion")
     testCompile("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     testCompile("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testCompile("org.junit.jupiter:junit-jupiter-params:$junitVersion")
@@ -90,7 +90,7 @@ dependencies {
 
 plugins.withId("kotlin") {
     configure<JavaPluginConvention> {
-        sourceCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = VERSION_1_8
     }
 
     tasks.withType<KotlinCompile> {

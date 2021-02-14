@@ -1,7 +1,7 @@
 package io.morrissey.iot.server.layout
 
-import io.morrissey.iot.server.aws.Controller
 import io.morrissey.iot.server.aws.AutomationSynchronizer
+import io.morrissey.iot.server.aws.Controller
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.*
 import io.morrissey.iot.server.model.CronDayOfWeek.*
@@ -102,8 +102,17 @@ fun HomeAutomationDef.automationGroup(name: String, groupCreate: AutomationGroup
     return automationGroup
 }
 
-fun HomeAutomationDef.metric(name: String, externalName: String, externalNamespace: String, period: Int, statistic: Metric.Statistic) {
-    val metric = Metric.find { (Metrics.externalName eq externalName) and (Metrics.externalNamespace eq externalNamespace) }.firstOrNull()
+fun HomeAutomationDef.metric(
+    name: String,
+    externalName: String,
+    externalNamespace: String,
+    period: Int,
+    statistic: Metric.Statistic,
+    dimensions: List<MetricDimension> = emptyList()
+) {
+    val metric =
+        Metric.find { (Metrics.externalName eq externalName) and (Metrics.externalNamespace eq externalNamespace) }
+            .firstOrNull()
     if (metric == null) {
         log.info("Adding new metric $name")
         Metric.new {
@@ -112,17 +121,20 @@ fun HomeAutomationDef.metric(name: String, externalName: String, externalNamespa
             this.externalNamespace = externalNamespace
             this.period = period
             this.statistic = statistic
+            this.dimensions = dimensions
         }
     } else {
         log.info("Found existing metric with external name: $externalName, updating values...")
         metric.name = name
         metric.period = period
         metric.statistic = statistic
+        metric.dimensions = dimensions
     }
 }
 
 fun AutomationGroup.logState() {
-    val automationDescriptions = items.map { "Automation(id=${it.id.value}, eventId=${it.eventId}, actionId=${it.actionId})\n" }
+    val automationDescriptions =
+        items.map { "Automation(id=${it.id.value}, eventId=${it.eventId}, actionId=${it.actionId})\n" }
     log.info("Automation group state with name $name and automations:\n$automationDescriptions\n")
 }
 
@@ -142,10 +154,10 @@ fun AutomationGroupDef.scheduledAutomation(
 ): Pair<Automation, Automation> {
     val startAction = controlAction(control, ControlState.ON)
     val startAutomation =
-            scheduledAutomation(startAction, startCron)
+        scheduledAutomation(startAction, startCron)
     val endAction = controlAction(control, ControlState.OFF)
     val endAutomation =
-            scheduledAutomation(endAction, endCron)
+        scheduledAutomation(endAction, endCron)
     startAutomation.associatedAutomationId = endAutomation.id.value
     automations.add(startAutomation)
     automations.add(endAutomation)

@@ -1,20 +1,49 @@
 <ion-header>
-  <ion-toolbar>
-    <ion-title>
-      Control
-    </ion-title>
-  </ion-toolbar>
+    <ion-toolbar>
+        <ion-title>
+            <ion-label>Control</ion-label>
+        </ion-title>
+        <ion-button fill="clear" slot="end" size="small" [hidden]="editMode" (click)="switchToEditMode()">
+            <ion-icon slot="icon-only" name="hammer-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="newGroup()">
+            <ion-icon slot="icon-only" name="add-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="cancelEdits()">
+            <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="saveEdits()">
+            <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
+        </ion-button>
+    </ion-toolbar>
 </ion-header>
 
 <ion-content>
     <ion-item-group *ngFor="let controlGroup of controlGroups">
-        <ion-item-divider>
-            <ion-label>{{controlGroup.name}}</ion-label>
-        </ion-item-divider>
-  <!-- Toggles in a List -->
-    <ion-item *ngFor="let control of controlGroup.controls">
-        <ion-label>{{control.name}}</ion-label>
-        <ion-toggle [color]="control.buttonColor" [checked]="control.on" (ionChange)="toggle(control)"></ion-toggle>
-    </ion-item>
+        <ion-list [hidden]="controlGroup.deleted">
+            <ion-list-header>
+                <ion-label [hidden]="editMode">{{controlGroup.name}}</ion-label>
+                <ion-input [hidden]="!editMode" [(ngModel)]="controlGroup.name"></ion-input>
+                <ion-button fill="clear" [hidden]="!editMode || controlGroup.deleted" (click)="addControl(controlGroup)">
+                    <ion-icon slot="icon-only" name="add-outline"></ion-icon>
+                </ion-button>
+                <ion-button fill="clear" [hidden]="!editMode || controlGroup.deleted"
+                            (click)="deleteGroup(controlGroup)">
+                    <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                </ion-button>
+            </ion-list-header>
+            <ion-item [hidden]="editMode || controlGroup.deleted" *ngFor="let control of controlGroup.controls">
+                <ion-label>{{control.name}}</ion-label>
+                <ion-toggle [color]="control.buttonColor" [checked]="control.on"
+                            (ionChange)="toggle(control)"></ion-toggle>
+            </ion-item>
+            <ion-item [hidden]="!editMode || controlGroup.deleted" *ngFor="let control of controlGroup.controls">
+                <ion-label [hidden]="control.deleted">{{control.name}}</ion-label>
+                <ion-button fill="clear" slot="end" [hidden]="!editMode || control.deleted"
+                            (click)="control.deleted = true">
+                    <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                </ion-button>
+            </ion-item>
+        </ion-list>
     </ion-item-group>
 </ion-content>

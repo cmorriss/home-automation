@@ -2,6 +2,8 @@
 
 package io.morrissey.iot.server.routes
 
+import io.ktor.application.*
+import io.ktor.response.*
 import io.ktor.routing.Route
 import io.morrissey.iot.server.ControlActionPath
 import io.morrissey.iot.server.ControlActionsPath
@@ -14,4 +16,8 @@ class ControlActionRoutes @Inject constructor(
     @AuthorizedRoute route: Route
 ) : EntityRoutes<ControlActionDto, ControlAction>(
     route, ControlActionPath::class, ControlActionsPath::class, ControlAction, ControlActionDto::class
-)
+) {
+    override suspend fun respondWithExplicitType(call: ApplicationCall, entityDto: ControlActionDto) {
+        call.respond(entityDto)
+    }
+}

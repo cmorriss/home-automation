@@ -14,6 +14,7 @@ export class ControlView {
         this.id = control.id;
         this.kind = control.type;
         this.name = control.name;
+        this.originalName = control.name;
         this.on = control.state.valueOf() === ControlState.ON.valueOf();
         this.lastUpdate = control.lastUpdate;
         this.updateColor();
@@ -24,10 +25,25 @@ export class ControlView {
     public kind: ControlType;
     public on: boolean;
     public lastUpdate: string;
+    public deleted: boolean = false;
+    private originalName: string;
 
     public toggle() {
         this.on = !this.on;
         this.updateColor();
+    }
+
+    public isEdited(): boolean {
+        return this.deleted || this.name != this.originalName;
+    }
+
+    public revertEdits() {
+        this.deleted = false;
+        this.name = this.originalName;
+    }
+
+    public saveEdits() {
+        this.originalName = this.name;
     }
 
     private updateColor() {
@@ -44,6 +60,7 @@ export class ControlView {
         } else {
             this.control.state = ControlState.OFF;
         }
+        this.control.name = this.originalName;
         return this.control;
     }
 }

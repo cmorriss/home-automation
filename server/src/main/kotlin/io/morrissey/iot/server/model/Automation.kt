@@ -115,6 +115,7 @@ data class AutomationDto(
         return transaction {
             Automation[id].apply {
                 eventId = this@AutomationDto.eventId
+                cron = convertToCron(this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime)
                 eventType = this@AutomationDto.eventType
                 actionId = this@AutomationDto.actionId
                 actionType = this@AutomationDto.actionType

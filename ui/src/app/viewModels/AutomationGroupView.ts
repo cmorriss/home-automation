@@ -5,8 +5,6 @@ import {Automation} from '../dataModels/Automation';
 import {ScheduledAutomationView} from './ScheduledAutomationView';
 import {Action} from '../dataModels/Action';
 import {Event} from '../dataModels/Event';
-import {Schedule} from '../dataModels/Schedule';
-import {throwError} from 'rxjs';
 import {ThresholdAutomationView} from './ThresholdAutomationView';
 import {AutomationGroupContainer} from './AutomationGroupContainer';
 
@@ -21,8 +19,6 @@ export class AutomationGroupView {
         const associatedAutomations = new Map<number, Automation>();
         const unassociatedAutomations = new Map<number, Automation>();
         automationGroup.items.forEach(automation => {
-            const event = eventMap.get(automation.eventId);
-            console.log('event with id ' + event.id + ' instance of Schedule is ' + (event instanceof Schedule));
             if (automation.associatedAutomationId > 0) {
                 associatedAutomations.set(automation.id, automation);
             } else {
@@ -34,7 +30,7 @@ export class AutomationGroupView {
             // Delete from the unassociated once its been used
             unassociatedAutomations.delete(automation.associatedAutomationId);
             const automationView = AutomationGroupView.createAssociatedAutomationView(
-                automation, associatedAutomation, actionMap, eventMap);
+                automation, associatedAutomation, actionMap);
             this.automations.push(automationView);
         });
         Array.from(unassociatedAutomations.values()).forEach(automation => {
@@ -59,21 +55,16 @@ export class AutomationGroupView {
     private static createAssociatedAutomationView(
         startAutomation: Automation,
         stopAutomation: Automation,
-        actionMap: Map<number, Action>,
-        eventMap: Map<number, Event>
+        actionMap: Map<number, Action>
     ): AutomationView {
-        const startSchedule = AutomationGroupView.verifyIsSchedule(eventMap.get(startAutomation.eventId));
-        const stopSchedule = AutomationGroupView.verifyIsSchedule(eventMap.get(stopAutomation.eventId));
         const startAction = actionMap.get(startAutomation.actionId);
         const stopAction = actionMap.get(stopAutomation.actionId);
 
         // At the moment, all associated automations are scheduled automations.
         return new ScheduledAutomationView(
             startAutomation,
-            startSchedule,
             startAction,
             stopAutomation,
-            stopSchedule,
             stopAction
         );
     }
@@ -84,13 +75,6 @@ export class AutomationGroupView {
         eventMap: Map<number, Event>
     ): AutomationView {
         return new ThresholdAutomationView(automation, actionMap.get(automation.actionId), eventMap.get(automation.eventId));
-    }
-
-    private static verifyIsSchedule(event: Event): Schedule {
-        if (!(event instanceof Schedule)) {
-            throwError(new Error('Event with id ' + event.id + ' found in associated automation but was not a schedule!'));
-        }
-        return (event as Schedule);
     }
 
     public toAutomationGroup(): AutomationGroupContainer {
@@ -111,7 +95,11 @@ export class AutomationGroupView {
                         actionType: container.action.type,
                         associatedAutomationId: null,
                         status: automation.status,
-                        resumeDate: automation.resumeDate.toDateString()
+                        resumeDate: automation.resumeDate.toDateString(),
+                        dateTime: '',
+                        daysOfTheWeek: [],
+                        time: ''
+
                     }));
             } else {
                 const start = automationContainers[0];
@@ -119,24 +107,31 @@ export class AutomationGroupView {
                 automationItems.push(Object.assign(new Automation(),
                     {
                         id: start.automation.id,
-                        eventId: start.event.id,
-                        eventType: start.event.type,
+                        eventId: -1,
+                        eventType: 'SCHEDULE',
                         actionId: start.action.id,
                         actionType: start.action.type,
                         associatedAutomationId: end.automation.id,
                         status: automation.status,
-                        resumeDate: automation.resumeDate.toDateString()
+                        resumeDate: automation.resumeDate.toDateString(),
+                        dateTime: '',
+                        daysOfTheWeek: start.automation.daysOfTheWeek,
+                        time: start.automation.time
+
                     }));
                 automationItems.push(Object.assign(new Automation(),
                     {
                         id: end.automation.id,
-                        eventId: end.event.id,
-                        eventType: end.event.type,
+                        eventId: -1,
+                        eventType: 'SCHEDULE',
                         actionId: end.action.id,
                         actionType: end.action.type,
                         associatedAutomationId: null,
                         status: automation.status,
-                        resumeDate: automation.resumeDate.toDateString()
+                        resumeDate: automation.resumeDate.toDateString(),
+                        dateTime: '',
+                        daysOfTheWeek: end.automation.daysOfTheWeek,
+                        time: end.automation.time
                     }));
             }
         });

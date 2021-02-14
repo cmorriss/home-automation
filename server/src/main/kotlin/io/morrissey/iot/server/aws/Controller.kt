@@ -1,8 +1,5 @@
 package io.morrissey.iot.server.aws
 
-import com.amazonaws.services.iot.client.AWSIotMessage
-import com.amazonaws.services.iot.client.AWSIotMqttClient
-import com.amazonaws.services.iot.client.AWSIotTopic
 import com.google.gson.Gson
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.Control
@@ -11,6 +8,8 @@ import io.morrissey.iot.server.model.ControlType
 import io.morrissey.iot.server.model.Controls
 import org.jetbrains.exposed.sql.transactions.transaction
 import software.amazon.awssdk.core.SdkBytes
+import software.amazon.awssdk.crt.mqtt.MqttClientConnection
+import software.amazon.awssdk.crt.mqtt.QualityOfService
 import software.amazon.awssdk.services.iotdataplane.IotDataPlaneClient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -19,13 +18,14 @@ import javax.inject.Singleton
 
 @Singleton
 class Controller @Inject constructor(
-    private val iotDataPlaneClient: IotDataPlaneClient, private val mqttClient: AWSIotMqttClient
+    private val iotDataPlaneClient: IotDataPlaneClient,
+    private val mqttClient: MqttClientConnection
 ) {
     private val updateAcceptedPattern = Regex("\\\$aws/things/(.*?)/shadow/update/accepted").toPattern()
     private val gson = Gson()
 
     init {
-        mqttClient.connect()
+        mqttClient.connect().get()
     }
 
     fun notifyUpdated(controlId: Int) {
@@ -57,7 +57,34 @@ class Controller @Inject constructor(
     fun listenToState(controlId: Int) {
         transaction {
             val control = Control[controlId]
-            mqttClient.subscribe(control.toUpdateAcceptedTopic())
+            mqttClient.subscribe(control.toUpdateAcceptedTopicName(), QualityOfService.AT_LEAST_ONCE) { message ->
+                val messageTopic = message?.topic
+                val payload = message?.payload?.toString(Charsets.UTF_8)
+                log.info("Received message from AWS, topic = $messageTopic, payload = \n$payload")
+                if (messageTopic != null && payload != null) {
+                    val thingNameMatcher = updateAcceptedPattern.matcher(messageTopic)
+                    if (thingNameMatcher.find()) {
+                        val thingName = thingNameMatcher.group(1)
+                        val newState = gson.fromJson(payload, ControlThingPayload::class.java)
+                        val newValue = newState?.state?.reported?.value
+                        if (newValue != null) {
+                            log.info("Updating control $thingName to value $newValue.")
+                            transaction {
+                                val topicControl = Control.find { Controls.thingName eq thingName }
+                                if (!topicControl.empty()) {
+                                    topicControl.first().state = newValue
+                                } else {
+                                    log.warn("Update failed: Was not able to find a control with the specified thing name.")
+                                }
+                            }
+                        } else {
+                            log.info("Skipping message as no new reported value was found.")
+                        }
+                    }
+                } else {
+                    log.info("Received a message, but was not able to find a thing name in the topic.")
+                }
+            }
             log.info("Listening to updates on AWS IoT topic ${control.toUpdateAcceptedTopicName()}")
         }
     }
@@ -83,39 +110,6 @@ class Controller @Inject constructor(
 
     private fun Control.toUpdateAcceptedTopicName(): String {
         return toUpdateTopicName() + "/accepted"
-    }
-
-    private fun Control.toUpdateAcceptedTopic(): AWSIotTopic {
-        return object : AWSIotTopic(toUpdateAcceptedTopicName()) {
-            override fun onMessage(message: AWSIotMessage?) {
-                val messageTopic = message?.topic
-                val payload = message?.stringPayload
-                log.info("Received message from AWS, topic = $messageTopic, payload = \n$payload")
-                if (messageTopic != null && payload != null) {
-                    val thingNameMatcher = updateAcceptedPattern.matcher(messageTopic)
-                    if (thingNameMatcher.find()) {
-                        val thingName = thingNameMatcher.group(1)
-                        val newState = gson.fromJson(payload, ControlThingPayload::class.java)
-                        val newValue = newState?.state?.reported?.value
-                        if (newValue != null) {
-                            log.info("Updating control $thingName to value $newValue.")
-                            transaction {
-                                val control = Control.find { Controls.thingName eq thingName }
-                                if (!control.empty()) {
-                                    control.first().state = newValue
-                                } else {
-                                    log.warn("Update failed: Was not able to find a control with the specified thing name.")
-                                }
-                            }
-                        } else {
-                            log.info("Skipping message as no new reported value was found.")
-                        }
-                    }
-                } else {
-                    log.info("Received a message, but was not able to find a thing name in the topic.")
-                }
-            }
-        }
     }
 
     data class ControlValue(val value: ControlState? = null)

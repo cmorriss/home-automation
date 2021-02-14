@@ -49,6 +49,7 @@ class MainModule(
         bind<MetricDataRoute>().asEagerSingleton()
         bind<AutomationGroupActionRoutes>().asEagerSingleton()
         bind<AutomationActionRoutes>().asEagerSingleton()
+        bind<ThresholdRoutes>().asEagerSingleton()
 
         install(AwsModule())
 

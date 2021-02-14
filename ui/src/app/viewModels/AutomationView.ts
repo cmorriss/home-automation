@@ -6,7 +6,6 @@ import {AutomationStatusEnum} from './AutomationStatusEnum';
 export interface AutomationView {
     id: number
     action: Action
-    event: Event
     status: AutomationStatusEnum
     resumeDate: Date
 

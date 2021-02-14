@@ -1,6 +1,5 @@
 package io.morrissey.iot.server.modules
 
-import com.amazonaws.services.iot.client.AWSIotMqttClient
 import com.google.inject.Provides
 import com.google.inject.Singleton
 import com.google.inject.assistedinject.FactoryModuleBuilder
@@ -17,11 +16,19 @@ import io.morrissey.iot.server.services.ResumeDateHandlerFactory
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.crt.io.ClientBootstrap
+import software.amazon.awssdk.crt.io.EventLoopGroup
+import software.amazon.awssdk.crt.mqtt.MqttClientConnection
+import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient
 import java.net.URI
 import java.util.UUID
+import software.amazon.awssdk.crt.io.HostResolver
+
+
+
 
 class AwsModule : KotlinModule() {
     override fun configure() {
@@ -45,13 +52,19 @@ class AwsModule : KotlinModule() {
 
     @Provides
     @Singleton
-    fun awsIotMqttClient(homeServerConfig: HomeServerConfig): AWSIotMqttClient {
-        return AWSIotMqttClient(
-            homeServerConfig.awsIotEndpoint,
-            "HomeIoTServer-${UUID.randomUUID()}",
-            homeServerConfig.awsAccessKey,
-            homeServerConfig.awsSecretKey
-        )
+    fun awsIotMqttClient(homeServerConfig: HomeServerConfig): MqttClientConnection {
+        val eventLoopGroup = EventLoopGroup(1)
+        val resolver = HostResolver(eventLoopGroup)
+        val clientBootstrap = ClientBootstrap(eventLoopGroup, resolver)
+
+        return AwsIotMqttConnectionBuilder.newMtlsBuilder(
+            homeServerConfig.awsIotPublicCert,
+            homeServerConfig.awsIotPrivateKey
+        ).withCertificateAuthority(homeServerConfig.awsCaRoot)
+            .withEndpoint(homeServerConfig.awsIotEndpoint)
+            .withClientId("HomeIoTServer-${UUID.randomUUID()}")
+            .withBootstrap(clientBootstrap)
+            .build()
     }
 
     @Provides

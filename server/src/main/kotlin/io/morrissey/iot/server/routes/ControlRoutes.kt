@@ -2,6 +2,8 @@
 
 package io.morrissey.iot.server.routes
 
+import io.ktor.application.*
+import io.ktor.response.*
 import io.ktor.routing.Route
 import io.morrissey.iot.server.ControlPath
 import io.morrissey.iot.server.ControlsPath
@@ -28,5 +30,9 @@ class ControlsRoutes @Inject constructor(
         val createdDto = super.post(entityDto)
         controller.notifyUpdated(createdDto.id)
         return createdDto
+    }
+
+    override suspend fun respondWithExplicitType(call: ApplicationCall, entityDto: ControlDto) {
+        call.respond(entityDto)
     }
 }

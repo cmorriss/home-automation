@@ -24,7 +24,6 @@ import kotlin.test.assertEquals
 
 class AutomationRouteTest {
     @Test
-    @Disabled
     fun testAutomations() {
 
         val automation = transaction {

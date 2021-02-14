@@ -2,6 +2,8 @@
 
 package io.morrissey.iot.server.routes
 
+import io.ktor.application.*
+import io.ktor.response.*
 import io.ktor.routing.Route
 import io.morrissey.iot.server.AutomationGroupActionPath
 import io.morrissey.iot.server.AutomationGroupActionsPath
@@ -14,4 +16,8 @@ class AutomationGroupActionRoutes @Inject constructor(
     @AuthorizedRoute route: Route
 ) : EntityRoutes<AutomationGroupActionDto, AutomationGroupAction>(
     route, AutomationGroupActionPath::class, AutomationGroupActionsPath::class, AutomationGroupAction, AutomationGroupActionDto::class
-)
+) {
+    override suspend fun respondWithExplicitType(call: ApplicationCall, entityDto: AutomationGroupActionDto) {
+        call.respond(entityDto)
+    }
+}

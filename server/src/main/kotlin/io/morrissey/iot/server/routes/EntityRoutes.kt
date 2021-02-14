@@ -2,14 +2,12 @@
 
 package io.morrissey.iot.server.routes
 
-import io.ktor.application.call
+import io.ktor.application.*
 import io.ktor.http.*
-import io.ktor.locations.handle
-import io.ktor.locations.location
-import io.ktor.request.receive
-import io.ktor.response.respond
-import io.ktor.routing.Route
-import io.ktor.routing.method
+import io.ktor.locations.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
 import io.morrissey.iot.server.IdPath
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.EntityDto
@@ -19,7 +17,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import kotlin.reflect.KClass
 
 @Suppress("UNCHECKED_CAST")
-open class EntityRoutes<D : EntityDto<*>, out E: TransferableEntity<D>>(
+abstract class EntityRoutes<D : EntityDto<*>, out E : TransferableEntity<D>>(
     private val route: Route,
     private val singlePath: KClass<out IdPath>,
     private val collectionPath: KClass<*>,
@@ -38,7 +36,7 @@ open class EntityRoutes<D : EntityDto<*>, out E: TransferableEntity<D>>(
                     handle(collectionPath) {
                         val entityDto = call.receive(entityDtoClass)
                         val createdDto = post(entityDto)
-                        call.respond(createdDto)
+                        respondWithExplicitType(call, createdDto)
                     }
                 }
                 method(HttpMethod.Options) {
@@ -51,14 +49,14 @@ open class EntityRoutes<D : EntityDto<*>, out E: TransferableEntity<D>>(
             location(singlePath) {
                 method(HttpMethod.Get) {
                     handle(singlePath) { path ->
-                        call.respond(getSingle(path.id))
+                        respondWithExplicitType(call, getSingle(path.id))
                     }
                 }
                 method(HttpMethod.Put) {
                     handle(singlePath) {
                         val entityDto = call.receive(entityDtoClass)
                         val updatedDto = put(entityDto)
-                        call.respond(updatedDto)
+                        respondWithExplicitType(call, updatedDto)
                     }
                 }
                 method(HttpMethod.Options) {
@@ -95,4 +93,6 @@ open class EntityRoutes<D : EntityDto<*>, out E: TransferableEntity<D>>(
             log.debug("POST response entity:\n$it")
         }
     }
+
+    abstract suspend fun respondWithExplicitType(call: ApplicationCall, entityDto: D)
 }
