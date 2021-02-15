@@ -16,8 +16,8 @@ import io.morrissey.iot.server.model.ActionType
 import io.morrissey.iot.server.model.Automation
 import io.morrissey.iot.server.model.AutomationStatusEnum
 import io.morrissey.iot.server.model.EventType
+import io.morrissey.iot.server.persistence.TestDb
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.slf4j.event.Level
 import kotlin.test.assertEquals
@@ -25,12 +25,14 @@ import kotlin.test.assertEquals
 class AutomationRouteTest {
     @Test
     fun testAutomations() {
+        TestDb().initialize()
 
         val automation = transaction {
             Automation.new {
+                name = "testAutomation"
                 eventId = -1
                 eventType = EventType.SCHEDULE
-                cron = "30 22 ? * 2 *"
+                cron = "30 22 ? * WED *"
                 actionId = 1
                 actionType = ActionType.CONTROL
                 associatedAutomationId = -1
@@ -54,7 +56,7 @@ class AutomationRouteTest {
                 addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             }
         }.apply {
-            assertEquals("30 22 ? * 2 *", transaction { Automation[automation.id].cron })
+            assertEquals("30 22 ? * WED *", transaction { Automation[automation.id].cron })
         }
     }
 }
