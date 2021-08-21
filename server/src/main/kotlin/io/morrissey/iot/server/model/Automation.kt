@@ -1,16 +1,15 @@
 package io.morrissey.iot.server.model
 
-import com.google.inject.Injector
 import io.morrissey.iot.server.log
-import io.morrissey.iot.server.services.AutomationStatusHandlerFactory
-import io.morrissey.iot.server.services.ResumeDateHandlerFactory
+import io.morrissey.iot.server.services.AutomationStatusHandler
+import io.morrissey.iot.server.services.ResumeDateHandler
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.IntIdTable
-import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.time.DayOfWeek
-import javax.inject.Inject
+import org.koin.core.component.KoinApiExtension
+import org.koin.core.parameter.parametersOf
+import org.koin.java.KoinJavaComponent.inject
 
 object Automations : IntIdTable("automation") {
     val eventId = integer("event_id")
@@ -28,24 +27,11 @@ enum class ActionType { CONTROL, AUTOMATION, AUTOMATION_GROUP }
 
 enum class EventType { SCHEDULE, THRESHOLD }
 
+@OptIn(KoinApiExtension::class)
 class Automation(
     id: EntityID<Int>,
-    automationStatusHandlerFactory: AutomationStatusHandlerFactory,
-    resumeDateHandlerFactory: ResumeDateHandlerFactory
-) : TransferableEntity<AutomationDto>(id),
-    AutomationState {
-    companion object : IntEntityClass<Automation>(Automations, Automation::class.java) {
-        @Inject
-        private lateinit var injector: Injector
-
-        override fun createInstance(entityId: EntityID<Int>, row: ResultRow?): Automation {
-            return Automation(
-                entityId,
-                injector.getInstance(AutomationStatusHandlerFactory::class.java),
-                injector.getInstance(ResumeDateHandlerFactory::class.java)
-            )
-        }
-    }
+) : TransferableEntity<AutomationDto>(id), AutomationState {
+    companion object : IntEntityClass<Automation>(Automations, Automation::class.java)
 
     var eventId by Automations.eventId
     var cron by Automations.cron
@@ -54,9 +40,11 @@ class Automation(
     var actionType by Automations.actionType
     var associatedAutomationId by Automations.associatedAutomationId
     var _status by Automations.status
-    override var status by automationStatusHandlerFactory.create(::_status)
+    private val automationStatusHandler by inject(AutomationStatusHandler::class.java) { parametersOf(::_status) }
+    override var status by automationStatusHandler
     var _resumeDate by Automations.resumeDate
-    override var resumeDate by resumeDateHandlerFactory.create(::_resumeDate)
+    private val resumeDateHandler by inject(ResumeDateHandler::class.java) { parametersOf(::_resumeDate) }
+    override var resumeDate by resumeDateHandler
     override var name by Automations.name
     override val automations: List<Automation>
         get() = listOf(this)
@@ -99,7 +87,9 @@ data class AutomationDto(
         return transaction {
             Automation.new {
                 eventId = this@AutomationDto.eventId
-                cron = convertToCron(this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime)
+                cron = convertToCron(
+                    this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime
+                )
                 eventType = this@AutomationDto.eventType
                 actionId = this@AutomationDto.actionId
                 actionType = this@AutomationDto.actionType
@@ -115,7 +105,9 @@ data class AutomationDto(
         return transaction {
             Automation[id].apply {
                 eventId = this@AutomationDto.eventId
-                cron = convertToCron(this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime)
+                cron = convertToCron(
+                    this@AutomationDto.time, this@AutomationDto.daysOfTheWeek, this@AutomationDto.dateTime
+                )
                 eventType = this@AutomationDto.eventType
                 actionId = this@AutomationDto.actionId
                 actionType = this@AutomationDto.actionType
@@ -129,6 +121,7 @@ data class AutomationDto(
 
 enum class CronDayOfWeek {
     MON, TUE, WED, THU, FRI, SAT, SUN;
+
     fun inc(): CronDayOfWeek {
         return if (ordinal < values().size - 1) {
             values()[ordinal + 1]

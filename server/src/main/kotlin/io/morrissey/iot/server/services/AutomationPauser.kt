@@ -32,10 +32,6 @@ abstract class ResumeDateHandler {
     abstract fun updateResumeDate(automationState: AutomationState, newResumeDate: String)
 }
 
-interface ResumeDateHandlerFactory {
-    fun create(dbProperty: KMutableProperty<String>): ResumeDateHandler
-}
-
 abstract class AutomationStatusHandler {
     abstract val dbProperty: KMutableProperty<AutomationStatusEnum>
 
@@ -97,8 +93,4 @@ abstract class AutomationStatusHandler {
     abstract fun enableResume(automationState: AutomationState)
 
     abstract fun disableResume(automationState: AutomationState)
-}
-
-interface AutomationStatusHandlerFactory {
-    fun create(dbProperty: KMutableProperty<AutomationStatusEnum>): AutomationStatusHandler
 }

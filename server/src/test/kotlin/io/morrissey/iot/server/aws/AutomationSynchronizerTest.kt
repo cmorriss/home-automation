@@ -1,13 +1,7 @@
 package io.morrissey.iot.server.aws
 
-import com.google.inject.Guice
-import com.google.inject.util.Modules
-import dev.misfitlabs.kotlinguice4.KotlinModule
 import io.ktor.util.*
-import io.mockk.clearMocks
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
+import io.mockk.*
 import io.morrissey.iot.server.HomeServerConfig
 import io.morrissey.iot.server.layout.calcEndCron
 import io.morrissey.iot.server.model.ActionType.CONTROL
@@ -19,15 +13,26 @@ import io.morrissey.iot.server.model.ControlState.OFF
 import io.morrissey.iot.server.model.ControlState.ON
 import io.morrissey.iot.server.model.ControlType.IRRIGATION_VALVE
 import io.morrissey.iot.server.model.EventType.SCHEDULE
-import io.morrissey.iot.server.modules.AwsModule
+import io.morrissey.iot.server.modules.awsModule
+import io.morrissey.iot.server.modules.dbModule
+import io.morrissey.iot.server.modules.mainModule
 import io.morrissey.iot.server.persistence.TestDb
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
+import org.koin.test.KoinTest
+import org.koin.test.junit5.KoinTestExtension
+import org.koin.test.junit5.mock.MockProviderExtension
+import org.koin.test.mock.declareMock
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient
 import software.amazon.awssdk.services.eventbridge.model.ListRulesRequest
 import software.amazon.awssdk.services.eventbridge.model.ListRulesResponse
@@ -45,7 +50,7 @@ import kotlin.test.assertEquals
 
 @InternalAPI
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class AutomationSynchronizerTest {
+class AutomationSynchronizerTest : KoinTest {
     companion object {
         private lateinit var storedControl: Control
         private lateinit var storedControlAction: ControlAction
@@ -90,20 +95,22 @@ class AutomationSynchronizerTest {
         @Suppress("unused")
         @JvmStatic
         fun convertCronTimeZone(): Stream<Arguments> {
+            val isDst = LOCAL_TIME_ZONE.rules.isDaylightSavings(Instant.now())
             // Assumes PST
-            val localHour = if (LOCAL_TIME_ZONE.rules.isDaylightSavings(Instant.now())) 6 else 7
+            val localHour1 = if (isDst) 6 else 7
+            val localHour2 = if (isDst) 8 else 7
             return Stream.of(
                 Arguments.of(
                     ConvertCronTimeZoneParam(
                         startCron = "30 23 ? * MON,WED,FRI *",
                         from = LOCAL_TIME_ZONE,
                         to = GMT_TIME_ZONE,
-                        expectedCron = "30 $localHour ? * TUE,THU,SAT *"
+                        expectedCron = "30 $localHour1 ? * TUE,THU,SAT *"
                     )
                 ),
                 Arguments.of(
                     ConvertCronTimeZoneParam(
-                        startCron = "30 $localHour ? * TUE,THU,SAT *",
+                        startCron = "30 $localHour1 ? * TUE,THU,SAT *",
                         from = GMT_TIME_ZONE,
                         to = LOCAL_TIME_ZONE,
                         expectedCron = "30 23 ? * MON,WED,FRI *"
@@ -111,7 +118,7 @@ class AutomationSynchronizerTest {
                 ),
                 Arguments.of(
                     ConvertCronTimeZoneParam(
-                        startCron = "30 $localHour ? * MON,WED,FRI *",
+                        startCron = "30 $localHour2 ? * MON,WED,FRI *",
                         from = LOCAL_TIME_ZONE,
                         to = GMT_TIME_ZONE,
                         expectedCron = "30 15 ? * MON,WED,FRI *"
@@ -122,7 +129,7 @@ class AutomationSynchronizerTest {
                         startCron = "30 15 ? * MON,WED,FRI *",
                         from = GMT_TIME_ZONE,
                         to = LOCAL_TIME_ZONE,
-                        expectedCron = "30 $localHour ? * MON,WED,FRI *"
+                        expectedCron = "30 $localHour2 ? * MON,WED,FRI *"
                     )
                 )
             )
@@ -133,15 +140,15 @@ class AutomationSynchronizerTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            TestDb().initialize()
+            startKoin {
+                val mockModule = module(override = true) {
+                    single { mockEbClient }
+                    single { mockk<AutomationSynchronizer>(relaxed = true) }
+                }
+                modules(awsModule(mockk()), dbModule(), mockModule)
+            }
 
-            Guice.createInjector(
-                Modules.override(AwsModule()).with(object : KotlinModule() {
-                    override fun configure() {
-                        bind<EventBridgeClient>().toInstance(mockEbClient)
-                    }
-                })
-            )
+            TestDb().initialize()
 
             storedControl = transaction {
                 Control.new {
@@ -174,11 +181,17 @@ class AutomationSynchronizerTest {
                 }
             }
         }
+
+        @JvmStatic
+        @AfterAll
+        fun tearDown() {
+            stopKoin()
+        }
     }
 
     @Test
     fun createScheduledAutomation() {
-        clearMocks(mockEbClient)
+        clearAllMocks()
         val mockHomeServerConfig = mockk<HomeServerConfig>()
         val mockResponse = mockk<ListRulesResponse>()
         every { mockResponse.rules() }.returns(emptyList())
@@ -199,7 +212,7 @@ class AutomationSynchronizerTest {
 
     @Test
     fun updateScheduledAutomation() {
-        clearMocks(mockEbClient)
+        clearAllMocks()
         val mockHomeServerConfig = mockk<HomeServerConfig>()
         val mockResponse = mockk<ListRulesResponse>()
         val mockRule = mockk<Rule>(relaxed = true)

@@ -4,21 +4,14 @@ package io.morrissey.iot.server.routes
 
 import io.ktor.application.*
 import io.ktor.response.*
-import io.ktor.routing.Route
 import io.morrissey.iot.server.ControlPath
 import io.morrissey.iot.server.ControlsPath
 import io.morrissey.iot.server.aws.Controller
 import io.morrissey.iot.server.model.Control
 import io.morrissey.iot.server.model.ControlDto
-import io.morrissey.iot.server.modules.AuthorizedRoute
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-import javax.inject.Inject
 
-class ControlsRoutes @Inject constructor(
-    @AuthorizedRoute route: Route, private val controller: Controller
-) : EntityRoutes<ControlDto, Control>(
-    route, ControlPath::class, ControlsPath::class, Control, ControlDto::class
+class ControlsRoutes(private val controller: Controller) : EntityRoutes<ControlDto, Control>(
+    AuthorizedRoute, ControlPath::class, ControlsPath::class, Control, ControlDto::class
 ) {
     override fun put(entityDto: ControlDto): ControlDto {
         val updatedDto = super.put(entityDto)

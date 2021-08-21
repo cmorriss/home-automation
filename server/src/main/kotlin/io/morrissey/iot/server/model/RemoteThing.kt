@@ -15,7 +15,9 @@ abstract class RemoteThing<D : EntityDto<*>>(id: EntityID<Int>) : TransferableEn
 }
 
 abstract class RemoteThingDto<R : RemoteThing<*>> : EntityDto<R>() {
-    abstract val givenId: String
+    abstract val thingName: String
     abstract val name: String
+
+
 }
 

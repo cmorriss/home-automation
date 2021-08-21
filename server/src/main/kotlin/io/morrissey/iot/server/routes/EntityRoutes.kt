@@ -14,17 +14,21 @@ import io.morrissey.iot.server.model.EntityDto
 import io.morrissey.iot.server.model.TransferableEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
+import org.koin.core.qualifier.Qualifier
 import kotlin.reflect.KClass
 
 @Suppress("UNCHECKED_CAST")
 abstract class EntityRoutes<D : EntityDto<*>, out E : TransferableEntity<D>>(
-    private val route: Route,
+    routeQualifier: Qualifier,
     private val singlePath: KClass<out IdPath>,
     private val collectionPath: KClass<*>,
     private val entityClass: IntEntityClass<E>,
     private val entityDtoClass: KClass<D>
-) {
+) : KoinComponent {
     init {
+        val route : Route = get(routeQualifier)
         with(route) {
             location(collectionPath) {
                 method(HttpMethod.Get) {
@@ -49,19 +53,49 @@ abstract class EntityRoutes<D : EntityDto<*>, out E : TransferableEntity<D>>(
             location(singlePath) {
                 method(HttpMethod.Get) {
                     handle(singlePath) { path ->
-                        respondWithExplicitType(call, getSingle(path.id))
+                        val entityDto = getSingle(path.id)
+                        try {
+                            respondWithExplicitType(call, entityDto)
+                        } catch (e: NotImplementedError) {
+                            log.warn(
+                                "An attempt was made to execute the GET method on the entity of type ${entityDtoClass::class.qualifiedName} and id ${entityDto.id}."
+                            )
+                            call.respond(HttpStatusCode.NotImplemented)
+                        }
                     }
                 }
                 method(HttpMethod.Put) {
                     handle(singlePath) {
                         val entityDto = call.receive(entityDtoClass)
-                        val updatedDto = put(entityDto)
-                        respondWithExplicitType(call, updatedDto)
+                        try {
+                            val updatedDto = put(entityDto)
+                            respondWithExplicitType(call, updatedDto)
+                        } catch (e: NotImplementedError) {
+                            log.warn(
+                                "An attempt was made to execute the PUT method on the entity of type ${entityDtoClass::class.qualifiedName} and id ${entityDto.id}."
+                            )
+                            call.respond(HttpStatusCode.NotImplemented)
+                        }
                     }
                 }
                 method(HttpMethod.Options) {
                     handle(singlePath) {
                         call.respond(HttpStatusCode.OK)
+                    }
+                }
+                method(HttpMethod.Delete) {
+                    handle(singlePath) { path ->
+                        log.debug("DELETE request for entity of type ${entityDtoClass::class.qualifiedName} and id ${path.id}")
+                        try {
+                            transaction { entityClass[path.id].delete() }
+                            log.debug("DELETE response OK")
+                            call.respond(HttpStatusCode.OK)
+                        } catch (e: NotImplementedError) {
+                            log.warn(
+                                "An attempt was made to execute the DELETE method on the entity of type ${entityDtoClass::class.qualifiedName} and id ${path.id}."
+                            )
+                            call.respond(HttpStatusCode.NotImplemented)
+                        }
                     }
                 }
             }

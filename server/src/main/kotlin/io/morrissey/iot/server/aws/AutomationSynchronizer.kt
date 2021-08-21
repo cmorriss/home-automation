@@ -3,29 +3,18 @@ package io.morrissey.iot.server.aws
 import com.cronutils.converter.CronConverter
 import io.morrissey.iot.server.HomeServerConfig
 import io.morrissey.iot.server.log
-import io.morrissey.iot.server.model.ActionType.AUTOMATION
-import io.morrissey.iot.server.model.ActionType.AUTOMATION_GROUP
-import io.morrissey.iot.server.model.ActionType.CONTROL
-import io.morrissey.iot.server.model.Automation
-import io.morrissey.iot.server.model.Control
-import io.morrissey.iot.server.model.ControlAction
-import io.morrissey.iot.server.model.CronDayOfWeek
-import io.morrissey.iot.server.model.DAY_OF_WEEK_FIELD
-import io.morrissey.iot.server.model.HOUR_FIELD
+import io.morrissey.iot.server.model.*
+import io.morrissey.iot.server.model.ActionType.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient
 import software.amazon.awssdk.services.eventbridge.model.ListRulesRequest
-import software.amazon.awssdk.services.eventbridge.model.ListTargetsByRuleRequest
 import software.amazon.awssdk.services.eventbridge.model.Rule
 import software.amazon.awssdk.services.eventbridge.model.Target
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoField
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class AutomationSynchronizer @Inject constructor(
+class AutomationSynchronizer(
     private val ebClient: EventBridgeClient, private val homeServerConfig: HomeServerConfig
 ) {
     fun synchronize(automationId: Int) {
@@ -223,11 +212,8 @@ val GMT_TIME_ZONE: ZoneId = ZoneId.of("GMT0")
 val LOCAL_TIME_ZONE: ZoneId = ZoneId.systemDefault()
 
 fun ControlAction.toTarget(homeServerConfig: HomeServerConfig): Target {
-    return Target.builder()
-        .arn(homeServerConfig.awsIotTriggerLambdaArn)
-        .id(control.toTargetId())
-        .input("{ \"thing_name\": \"${control.thingName}\", \"value\": \"${state.name}\" }")
-        .build()
+    return Target.builder().arn(homeServerConfig.awsIotTriggerLambdaArn).id(control.toTargetId())
+        .input("{ \"thing_name\": \"${control.thingName}\", \"value\": \"${state.name}\" }").build()
 }
 
 fun Control.toTargetId(): String {

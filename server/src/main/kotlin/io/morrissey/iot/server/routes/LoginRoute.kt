@@ -4,33 +4,28 @@ package io.morrissey.iot.server.routes
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import io.ktor.application.call
-import io.ktor.auth.OAuthAccessTokenResponse
-import io.ktor.auth.authentication
-import io.ktor.client.HttpClient
-import io.ktor.client.request.header
-import io.ktor.locations.get
-import io.ktor.locations.locations
-import io.ktor.request.path
-import io.ktor.response.respondRedirect
-import io.ktor.routing.Route
-import io.ktor.sessions.sessions
-import io.ktor.sessions.set
+import io.ktor.application.*
+import io.ktor.auth.*
+import io.ktor.client.*
+import io.ktor.client.request.*
+import io.ktor.locations.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.sessions.*
 import io.morrissey.iot.server.HomeServerConfig
 import io.morrissey.iot.server.LoginFailed
 import io.morrissey.iot.server.LoginPath
 import io.morrissey.iot.server.log
-import io.morrissey.iot.server.modules.AuthenticatedRoute
 import io.morrissey.iot.server.model.User
 import io.morrissey.iot.server.model.Users
 import io.morrissey.iot.server.security.HomeSiteSession
 import org.jetbrains.exposed.sql.transactions.transaction
-import javax.inject.Inject
-import io.ktor.client.request.get as clientGet
+import org.koin.java.KoinJavaComponent.getKoin
 
-class LoginRoute @Inject constructor(
-    @AuthenticatedRoute route: Route, serverConfig: HomeServerConfig
-) {
+class LoginRoute(serverConfig: HomeServerConfig) {
+    private val route: Route = getKoin().get(AuthenticatedRoute)
+
     init {
         with(route) {
             get<LoginPath> {
@@ -42,9 +37,9 @@ class LoginRoute @Inject constructor(
                 }
 
                 val principal =
-                        call.authentication.principal<OAuthAccessTokenResponse.OAuth2>() ?: error("No principal")
+                    call.authentication.principal<OAuthAccessTokenResponse.OAuth2>() ?: error("No principal")
 
-                val json = HttpClient().clientGet<String>("https://www.googleapis.com/userinfo/v2/me") {
+                val json = HttpClient().get<String>("https://www.googleapis.com/userinfo/v2/me") {
                     header("Authorization", "Bearer ${principal.accessToken}")
                 }
 

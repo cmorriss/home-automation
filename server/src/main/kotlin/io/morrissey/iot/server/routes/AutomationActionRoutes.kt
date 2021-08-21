@@ -4,18 +4,17 @@ package io.morrissey.iot.server.routes
 
 import io.ktor.application.*
 import io.ktor.response.*
-import io.ktor.routing.Route
 import io.morrissey.iot.server.AutomationActionPath
 import io.morrissey.iot.server.AutomationActionsPath
 import io.morrissey.iot.server.model.AutomationAction
 import io.morrissey.iot.server.model.AutomationActionDto
-import io.morrissey.iot.server.modules.AuthorizedRoute
-import javax.inject.Inject
 
-class AutomationActionRoutes @Inject constructor(
-    @AuthorizedRoute route: Route
-) : EntityRoutes<AutomationActionDto, AutomationAction>(
-    route, AutomationActionPath::class, AutomationActionsPath::class, AutomationAction, AutomationActionDto::class
+class AutomationActionRoutes : EntityRoutes<AutomationActionDto, AutomationAction>(
+    AuthorizedRoute,
+    AutomationActionPath::class,
+    AutomationActionsPath::class,
+    AutomationAction,
+    AutomationActionDto::class
 ) {
     override suspend fun respondWithExplicitType(call: ApplicationCall, entityDto: AutomationActionDto) {
         call.respond(entityDto)

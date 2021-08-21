@@ -16,7 +16,7 @@
                 <ion-item lines="none">
                     <ion-label position="stacked">Status</ion-label>
                     <ion-button [color]="automationGroup.status.color"
-                                (click)="openScheduleStatusPicker(automationGroup)">{{automationGroup.status.displayValue}}</ion-button>
+                                (click)="openAutomationGroupScheduleStatusPicker(automationGroup)">{{automationGroup.status.displayValue}}</ion-button>
                 </ion-item>
 
                 <ion-item lines="none">
@@ -28,7 +28,11 @@
         </ion-header>
         <ion-item-divider></ion-item-divider>
         <ion-item *ngFor="let automation of automationGroup.scheduledAutomations">
-            <ion-label>{{automation.action.name}}</ion-label>
+            <ion-item lines="none">
+                <ion-label position="stacked">{{automation.action.name}}</ion-label>
+                <ion-button [color]="automation.status.color" [disabled]="!automationGroup.isActive()"
+                            (click)="openAutomationScheduleStatusPicker(automation)">{{automation.status.displayValue}}</ion-button>
+            </ion-item>
             <ion-item lines="none">
                 <ion-label position="stacked">Start Time</ion-label>
                 <ion-button [textContent]="automation.startTime.getTime()"
@@ -54,13 +58,13 @@
 
                 <ion-select [placeholder]="automation.name + 'select'" multiple="true" hidden
                             (ionChange)='updateDays(automation, $event)'>
-                    <ion-select-option value="MONDAY">Monday</ion-select-option>
-                    <ion-select-option value="TUESDAY">Tuesday</ion-select-option>
-                    <ion-select-option value="WEDNESDAY">Wednesday</ion-select-option>
-                    <ion-select-option value="THURSDAY">Thursday</ion-select-option>
-                    <ion-select-option value="FRIDAY">Friday</ion-select-option>
-                    <ion-select-option value="SATURDAY">Saturday</ion-select-option>
-                    <ion-select-option value="SUNDAY">Sunday</ion-select-option>
+                    <ion-select-option value="MON">Monday</ion-select-option>
+                    <ion-select-option value="TUE">Tuesday</ion-select-option>
+                    <ion-select-option value="WED">Wednesday</ion-select-option>
+                    <ion-select-option value="THU">Thursday</ion-select-option>
+                    <ion-select-option value="FRI">Friday</ion-select-option>
+                    <ion-select-option value="SAT">Saturday</ion-select-option>
+                    <ion-select-option value="SUN">Sunday</ion-select-option>
                 </ion-select>
             </ion-item>
         </ion-item>

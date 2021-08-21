@@ -8,9 +8,8 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
-import javax.inject.Inject
 
-class ApplicationDatabaseProd @Inject constructor(private val homeServerConfig: HomeServerConfig) : ApplicationDatabase {
+class ApplicationDatabaseProd(private val homeServerConfig: HomeServerConfig) : ApplicationDatabase {
     override fun initialize() {
         Database.connect(homeServerConfig.dbUrl, driver = "org.h2.Driver")
         createProdDbTables()

@@ -9,10 +9,10 @@
         <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="newGroup()">
             <ion-icon slot="icon-only" name="add-outline"></ion-icon>
         </ion-button>
-        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="cancelEdits()">
+        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="cancelChanges()">
             <ion-icon slot="icon-only" name="close-outline"></ion-icon>
         </ion-button>
-        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="saveEdits()">
+        <ion-button fill="clear" slot="end" size="small" [hidden]="!editMode" (click)="saveChanges()">
             <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
         </ion-button>
     </ion-toolbar>
@@ -34,7 +34,7 @@
             </ion-list-header>
             <ion-item [hidden]="editMode || controlGroup.deleted" *ngFor="let control of controlGroup.controls">
                 <ion-label>{{control.name}}</ion-label>
-                <ion-toggle [color]="control.buttonColor" [checked]="control.on"
+                <ion-toggle [color]="control.buttonColor" [checked]="control.isOn()"
                             (ionChange)="toggle(control)"></ion-toggle>
             </ion-item>
             <ion-item [hidden]="!editMode || controlGroup.deleted" *ngFor="let control of controlGroup.controls">

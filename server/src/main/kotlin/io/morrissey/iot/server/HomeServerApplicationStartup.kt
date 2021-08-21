@@ -14,19 +14,25 @@ import io.ktor.response.*
 import io.ktor.sessions.*
 import io.ktor.util.*
 import io.ktor.util.date.*
+import io.morrissey.iot.server.aws.AutomationSynchronizer
+import io.morrissey.iot.server.aws.Controller
+import io.morrissey.iot.server.aws.MetricDataRetriever
 import io.morrissey.iot.server.layout.HomeIotLayout
 import io.morrissey.iot.server.persistence.ApplicationDatabase
+import io.morrissey.iot.server.routes.*
 import io.morrissey.iot.server.security.AuthenticationException
 import io.morrissey.iot.server.security.AuthorizationException
 import io.morrissey.iot.server.security.HomeSiteSession
 import io.morrissey.iot.server.visibility.influxMeterRegistry
-import javax.inject.Inject
 
-class HomeServerApplicationStartup @Inject constructor(
+class HomeServerApplicationStartup(
     application: Application,
     homeServerConfig: HomeServerConfig,
     applicationDatabase: ApplicationDatabase,
-    homeIotLayout: HomeIotLayout
+    homeIotLayout: HomeIotLayout,
+    controller: Controller,
+    synchronizer: AutomationSynchronizer,
+    metricDataRetriever: MetricDataRetriever
 ) {
     init {
         log.info("@@@@@@@@@@@@@ Starting up application... @@@@@@@@@@@@@@@@@@@@@@@@")
@@ -39,6 +45,9 @@ class HomeServerApplicationStartup @Inject constructor(
 
         log.info("@@@@@@@@@@@@@ Populating IoT Definitions and State... @@@@@@@@@@@")
         homeIotLayout.populate()
+
+        log.info("@@@@@@@@@@@@@ Building routes... @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        buildRoutes(homeServerConfig, controller, synchronizer, metricDataRetriever)
     }
 
     private fun configure(application: Application, homeServerConfig: HomeServerConfig) {
@@ -104,5 +113,25 @@ class HomeServerApplicationStartup @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun buildRoutes(
+        homeServerConfig: HomeServerConfig,
+        controller: Controller,
+        synchronizer: AutomationSynchronizer,
+        metricDataRetriever: MetricDataRetriever
+    ) {
+        ControlGroupRoutes()
+        ControlsRoutes(controller)
+        LoginRoute(homeServerConfig)
+        StaticContentRoutes(homeServerConfig)
+        AutomationGroupRoutes()
+        AutomationRoutes(synchronizer)
+        ControlActionRoutes()
+        MetricRoutes()
+        MetricDataRoute(metricDataRetriever)
+        AutomationGroupActionRoutes()
+        AutomationActionRoutes()
+        ThresholdRoutes()
     }
 }

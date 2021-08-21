@@ -1,10 +1,9 @@
 package io.morrissey.iot.server.security
 
-import io.ktor.auth.authenticate
-import io.ktor.routing.Route
-import javax.inject.Inject
+import io.ktor.auth.*
+import io.ktor.routing.*
 
-class AuthenticatingRouter @Inject constructor(private val route: Route) {
+class AuthenticatingRouter(private val route: Route) {
     val authenticatingRoute: Route
         get() {
             var _authenticatingRoute: Route? = null
@@ -13,5 +12,4 @@ class AuthenticatingRouter @Inject constructor(private val route: Route) {
             }
             return _authenticatingRoute!!
         }
-
 }

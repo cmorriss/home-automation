@@ -69,6 +69,10 @@ export class AutomationGroupView {
         );
     }
 
+    public isActive(): boolean {
+        return this.status == AutomationStatusEnum.Active;
+    }
+
     private static createUnassociatedAutomationView(
         automation: Automation,
         actionMap: Map<number, Action>,

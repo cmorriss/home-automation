@@ -1,4 +1,4 @@
-import {Control, ControlType, ControlState} from '../dataModels/Control';
+import {Control, ControlState, ControlType} from '../dataModels/Control';
 
 export class ControlView {
     public static readonly offColor: string = 'medium';
@@ -9,45 +9,71 @@ export class ControlView {
     public buttonColor: string;
 
     constructor(
-        private control: Control
+        private control: Control,
+        private created: boolean = false
     ) {
-        this.id = control.id;
-        this.kind = control.type;
-        this.name = control.name;
-        this.originalName = control.name;
-        this.on = control.state.valueOf() === ControlState.ON.valueOf();
-        this.lastUpdate = control.lastUpdate;
-        this.updateColor();
+        this.loadControl();
     }
 
     public id: number;
     public name: string;
     public kind: ControlType;
-    public on: boolean;
     public lastUpdate: string;
     public deleted: boolean = false;
     private originalName: string;
 
-    public toggle() {
-        this.on = !this.on;
+    public setControl(newControl: Control) {
+        this.control = newControl;
+        this.loadControl();
+    }
+
+    private loadControl() {
+        this.id = this.control.id;
+        this.kind = this.control.type;
+        this.name = this.control.name;
+        this.originalName = this.control.name;
+        this.lastUpdate = this.control.lastUpdate;
         this.updateColor();
     }
 
-    public isEdited(): boolean {
-        return this.deleted || this.name != this.originalName;
+    public toggle() {
+        this.control.state = this.isOn() ? ControlState.OFF : ControlState.ON;
+        this.updateColor();
     }
 
-    public revertEdits() {
+    public isOn() {
+        return this.control.state.valueOf() === ControlState.ON.valueOf();
+    }
+
+    public isCreated(): boolean {
+        return this.created;
+    }
+
+    public isChanged(): boolean {
+        return this.name != this.originalName || this.isDeleted();
+    }
+
+    public isDeleted(): boolean {
+        return this.deleted;
+    }
+
+    public revertChanges() {
         this.deleted = false;
         this.name = this.originalName;
     }
 
-    public saveEdits() {
+    public saveChanges() {
         this.originalName = this.name;
+        // If we were new, this now indicates that we have been saved and are no longer "new".
+        this.id = this.control.id;
+    }
+
+    public setError() {
+        this.buttonColor = ControlView.errorColor;
     }
 
     private updateColor() {
-        if (this.on) {
+        if (this.isOn()) {
             this.buttonColor = ControlView.onColor;
         } else {
             this.buttonColor = ControlView.offColor;
@@ -55,7 +81,7 @@ export class ControlView {
     }
 
     public toControl(): Control {
-        if (this.on) {
+        if (this.isOn()) {
             this.control.state = ControlState.ON;
         } else {
             this.control.state = ControlState.OFF;

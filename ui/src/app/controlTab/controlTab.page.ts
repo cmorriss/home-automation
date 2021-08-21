@@ -1,12 +1,13 @@
 import {Component} from '@angular/core';
 import {IotService} from '../iot.service';
-import {LoadingController, PickerController} from '@ionic/angular';
+import {LoadingController, ModalController, PickerController} from '@ionic/angular';
 import {ControlView} from '../viewModels/ControlView';
 import {ControlGroup} from '../dataModels/ControlGroup';
 import {ControlGroupView} from '../viewModels/ControlGroupView';
 import {AutomationGroupView} from '../viewModels/AutomationGroupView';
 import {AutomationStatusEnum} from '../viewModels/AutomationStatusEnum';
 import {Control} from '../dataModels/Control';
+import {ControlSelectModal} from './controlSelectModal';
 
 @Component({
     selector: 'app-tab1',
@@ -16,13 +17,14 @@ import {Control} from '../dataModels/Control';
 export class ControlTabPage {
 
     public controlGroups: ControlGroupView[] = [];
-    public controls: ControlView[] = [];
+    public controls: Control[] = [];
     public editMode: boolean = false;
 
     constructor(
         public iotService: IotService,
         public loadingController: LoadingController,
-        public pickerCtrl: PickerController
+        public pickerCtrl: PickerController,
+        public modalController: ModalController
     ) {
     }
 
@@ -53,7 +55,7 @@ export class ControlTabPage {
             .subscribe(res => {
                 console.log('Found these controls:');
                 console.log(res);
-                this.controls = Array.from<Control>(res).map(c => new ControlView(c));
+                this.controls = Array.from<Control>(res);
                 cLoaded = true;
                 if (cgLoaded) {
                     loading.dismiss();
@@ -69,7 +71,21 @@ export class ControlTabPage {
 
     public toggle(control: ControlView) {
         control.toggle();
-        this.iotService.updateControl(control.toControl());
+        this.iotService.updateControl(control.toControl()).subscribe(res => {
+                console.log('Updated Control, result:');
+                console.log(res);
+            }, err => {
+                console.log(err);
+                this.reload(control);
+                control.setError();
+            }
+        );
+    }
+
+    reload(control: ControlView) {
+        this.iotService.getControl(control.id).subscribe(latestControl => {
+            control.setControl(latestControl);
+        });
     }
 
     switchToEditMode() {
@@ -101,11 +117,11 @@ export class ControlTabPage {
         picker.onDidDismiss().then(async data => {
             const col = await picker.getColumn('Add Control');
             let addedControlId = col.options[col.selectedIndex].value as number;
-            if (cg.controls.find(c => c.id == addedControlId) != undefined) {
-                
-            } else {
+            if (cg.controls.find(c => c.id == addedControlId) == undefined) {
                 let c = this.controls.find(c => c.id == addedControlId);
-                cg.controls.push(c);
+                cg.controls.push(new ControlView(c, true));
+            } else {
+                console.log(`Control ${addedControlId} was not added since it already exists in the list of controls for this group.`)
             }
         });
     }
@@ -118,13 +134,13 @@ export class ControlTabPage {
         }
     }
 
-    cancelEdits() {
+    cancelChanges() {
         this.editMode = false;
         this.controlGroups = this.controlGroups.filter(cg => {
             if (cg.isNew()) {
                 return false;
             } else {
-                if (cg.isEdited()) {
+                if (cg.isChanged()) {
                     cg.revertEdits();
                 }
                 return true;
@@ -132,38 +148,49 @@ export class ControlTabPage {
         });
     }
 
-    saveEdits() {
+    saveChanges() {
         this.editMode = false;
         this.controlGroups = this.controlGroups.map((cg, index) => {
-                cg.saveEdits();
-                let shouldReturnCg = true;
-                if (cg.deleted) {
-                    this.iotService.deleteControlGroup(cg.toControlGroup());
-                    return null;
-                } else if (cg.isNew()) {
-                    this.iotService.createControlGroup(cg.toControlGroup()).subscribe(res => {
-                        let createdCg = res as ControlGroup
-                        console.log('Created new control group, id:' + createdCg.id);
+            let shouldReturnCg = true;
+            if (cg.deleted) {
+                this.iotService.deleteControlGroup(cg.toControlGroup());
+                return null;
+            } else if (cg.isNew()) {
+                this.iotService.createControlGroup(cg.toControlGroup()).subscribe(res => {
+                    let createdCg = res as ControlGroup
+                    console.log('Created new control group, id:' + createdCg.id);
+                    shouldReturnCg = false;
+                    return new ControlGroupView(createdCg);
+                }, err => {
+                    console.log(err);
+                });
+            } else if (cg.isChanged()) {
+                cg.saveChanges();
+                this.iotService.updateControlGroup(cg.toControlGroup()).subscribe(res => {
                         shouldReturnCg = false;
-                        return new ControlGroupView(createdCg);
-                    }, err => {
-                        console.log(err);
-                    });
-                } else if (cg.isEdited()) {
-                    this.iotService.updateControlGroup(cg.toControlGroup()).subscribe(res => {
-                            shouldReturnCg = false;
-                            return new ControlGroupView(res);
-                        }, error => {
-                            console.log(error);
-                        }
-                    );
-                }
-                if (!shouldReturnCg) {
-                    console.log('Uhh, check yourself')
-                }
-                return cg;
+                        return new ControlGroupView(res);
+                    }, error => {
+                        console.log(error);
+                    }
+                );
             }
-        )
+            if (!shouldReturnCg) {
+                console.log('Uhh, check yourself')
+            }
+            return cg;
+        });
+    }
+
+    async presentControlSelectModal() {
+        const modal = await this.modalController.create({
+            component: ControlSelectModal,
+            componentProps: {
+                'availableControls': ,
+                'lastName': 'Adams',
+                'middleInitial': 'N'
+            }
+        });
+        return await modal.present();
     }
 
     ionViewWillEnter() {

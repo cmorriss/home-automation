@@ -1,19 +1,15 @@
 package io.morrissey.iot.server.routes
 
-import io.ktor.http.content.default
-import io.ktor.http.content.files
-import io.ktor.http.content.static
-import io.ktor.http.content.staticRootFolder
-import io.ktor.routing.Route
+import io.ktor.http.content.*
+import io.ktor.routing.*
 import io.morrissey.iot.server.HomeServerConfig
 import io.morrissey.iot.server.log
-import io.morrissey.iot.server.modules.AuthorizedRoute
+import org.koin.java.KoinJavaComponent.getKoin
 import java.io.File
-import javax.inject.Inject
 
-class StaticContentRoutes @Inject constructor(
-    @AuthorizedRoute route: Route, serverConfig: HomeServerConfig
-) {
+class StaticContentRoutes(serverConfig: HomeServerConfig) {
+    private val route: Route = getKoin().get(AuthorizedRoute)
+
     init {
         with(route) {
             static("/") {

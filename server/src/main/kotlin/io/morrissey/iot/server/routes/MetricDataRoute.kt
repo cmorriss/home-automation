@@ -11,14 +11,12 @@ import io.morrissey.iot.server.aws.MetricDataRetriever
 import io.morrissey.iot.server.aws.MetricRetrievalDuration
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.Metric
-import io.morrissey.iot.server.modules.AuthorizedRoute
 import org.jetbrains.exposed.sql.transactions.transaction
-import javax.inject.Inject
+import org.koin.java.KoinJavaComponent.getKoin
 
-class MetricDataRoute @Inject constructor(
-    @AuthorizedRoute route: Route,
-    metricDataRetriever: MetricDataRetriever
-) {
+class MetricDataRoute(metricDataRetriever: MetricDataRetriever) {
+    private val route: Route = getKoin().get(AuthorizedRoute)
+
     init {
         with(route) {
             get<MetricDataPath> { metricData ->

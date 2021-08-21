@@ -92,7 +92,7 @@ export class ScheduledAutomationView implements AutomationView {
                 actionId: existing.actionId,
                 actionType: existing.actionType,
                 associatedAutomationId: existing.associatedAutomationId,
-                status: existing.status,
+                status: this.status,
                 resumeDate: existing.resumeDate,
                 dateTime: '', // TODO: Figure out where this can be used or remove if not needed
                 daysOfTheWeek: this.daysOfTheWeek,

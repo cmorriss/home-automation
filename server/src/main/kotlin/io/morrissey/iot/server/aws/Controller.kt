@@ -1,11 +1,12 @@
 package io.morrissey.iot.server.aws
 
-import com.google.gson.Gson
+import io.morrissey.iot.server.json
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.Control
 import io.morrissey.iot.server.model.ControlState
 import io.morrissey.iot.server.model.ControlType
 import io.morrissey.iot.server.model.Controls
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.transactions.transaction
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection
@@ -13,16 +14,11 @@ import software.amazon.awssdk.crt.mqtt.QualityOfService
 import software.amazon.awssdk.services.iotdataplane.IotDataPlaneClient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class Controller @Inject constructor(
-    private val iotDataPlaneClient: IotDataPlaneClient,
-    private val mqttClient: MqttClientConnection
+class Controller(
+    private val iotDataPlaneClient: IotDataPlaneClient, private val mqttClient: MqttClientConnection
 ) {
     private val updateAcceptedPattern = Regex("\\\$aws/things/(.*?)/shadow/update/accepted").toPattern()
-    private val gson = Gson()
 
     init {
         mqttClient.connect().get()
@@ -45,7 +41,7 @@ class Controller @Inject constructor(
             val shadow = iotDataPlaneClient.getThingShadow {
                 it.thingName(control.thingName)
             }.payload().asUtf8String()
-            val payload = gson.fromJson(shadow, ControlThingPayload::class.java)
+            val payload: ControlThingPayload = json.decodeFromString(ControlThingPayload.serializer(), shadow)
             payload.state.reported?.value?.let {
                 control.state = it
                 control.lastUpdate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
@@ -65,8 +61,8 @@ class Controller @Inject constructor(
                     val thingNameMatcher = updateAcceptedPattern.matcher(messageTopic)
                     if (thingNameMatcher.find()) {
                         val thingName = thingNameMatcher.group(1)
-                        val newState = gson.fromJson(payload, ControlThingPayload::class.java)
-                        val newValue = newState?.state?.reported?.value
+                        val newState = json.decodeFromString(ControlThingPayload.serializer(), payload)
+                        val newValue = newState.state.reported?.value
                         if (newValue != null) {
                             log.info("Updating control $thingName to value $newValue.")
                             transaction {
@@ -97,7 +93,7 @@ class Controller @Inject constructor(
                         desired = ControlValue(state)
                     )
                 )
-                val payloadText = gson.toJson(payload)
+                val payloadText = json.encodeToString(ControlThingPayload.serializer(), payload)
                 log.info("Converted control with thing name $thingName to payload $payloadText")
                 SdkBytes.fromUtf8String(payloadText)
             }
@@ -112,7 +108,12 @@ class Controller @Inject constructor(
         return toUpdateTopicName() + "/accepted"
     }
 
+    @Serializable
     data class ControlValue(val value: ControlState? = null)
+
+    @Serializable
     data class ControlThingState(val desired: ControlValue? = null, val reported: ControlValue? = null)
+
+    @Serializable
     data class ControlThingPayload(val state: ControlThingState)
 }

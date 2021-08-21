@@ -1,3 +1,6 @@
+. /etc/profile.d/java.sh
 . /etc/profile.d/gradle.sh
 cd /usr/lib/home-automation-server
+java --version
+gradle --version
 gradle run

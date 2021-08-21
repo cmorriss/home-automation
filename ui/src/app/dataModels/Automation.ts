@@ -29,7 +29,7 @@ export class Automation {
 }
 
 export enum EventType {
-    SCHEDULE = 'SCHEDULE', THRESHOLD = 'THRESHOLD'
+    THRESHOLD = 'THRESHOLD', SCHEDULE = 'SCHEDULE'
 }
 
 export enum ActionType {

@@ -186,7 +186,7 @@ export class AutomationTabPage {
         }
     }
 
-    public updateDays(schedule: ScheduledAutomationView, event: CustomEvent<any>) {
+    public updateDays(schedule: ScheduledAutomationView, event: CustomEvent) {
         schedule.daysOfTheWeek = event.detail.value;
         this.updateAutomation(schedule);
     }
@@ -198,16 +198,79 @@ export class AutomationTabPage {
     }
 
     private updateAutomationContainer(automationContainer: AutomationContainer) {
-        this.iotService.updateAutomation(automationContainer.automation);
-        this.iotService.updateEvent(automationContainer.event);
-        this.iotService.updateAction(automationContainer.action);
+        this.iotService.updateAutomation(automationContainer.automation).subscribe(res => {
+            console.log('Updated automation, result:');
+            console.log(res);
+        }, error => {
+            console.log(`An error occurred while updating the automation ${automationContainer.automation.id}:`);
+            console.log(error);
+        });
+        if (automationContainer.event != null) {
+            this.iotService.updateEvent(automationContainer.event).subscribe(res => {
+                console.log('Updated automation event, result:');
+                console.log(res);
+            }, error => {
+                console.log(`An error occurred while updating the automation event ${automationContainer.event.id}:`);
+                console.log(error);
+            });
+        }
+        if (automationContainer.action != null) {
+            this.iotService.updateAction(automationContainer.action).subscribe(res => {
+                console.log('Updated automation action, result:');
+                console.log(res);
+            }, error => {
+                console.log(`An error occurred while updating the automation action ${automationContainer.action.id}:`);
+                console.log(error);
+            });
+        }
     }
 
     public updateAutomationGroup(automationGroupView: AutomationGroupView) {
-        this.iotService.updateAutomationGroup(automationGroupView.toAutomationGroup().automationGroup);
+        this.iotService.updateAutomationGroup(automationGroupView.toAutomationGroup().automationGroup).subscribe(res => {
+            console.log('Updated automation group, result:');
+            console.log(res);
+        }, error => {
+            console.log(`An error occurred while updating the automation group ${automationGroupView.name}:`);
+            console.log(error);
+        });
     }
 
-    async openScheduleStatusPicker(automationGroup: AutomationGroupView) {
+    async openAutomationScheduleStatusPicker(automation: AutomationView) {
+        const picker = await this.pickerCtrl.create({
+            buttons: [{
+                text: 'Done',
+            }],
+            columns: [
+                {
+                    name: 'Manage Schedule',
+                    options: [
+                        {
+                            text: 'Active',
+                            value: AutomationStatusEnum.Active.value
+                        },
+                        {
+                            text: 'Stopped',
+                            value: AutomationStatusEnum.Stopped.value
+                        }
+                    ]
+                }
+            ]
+        });
+        let selectedIndex = 0;
+        if (automation.status === AutomationStatusEnum.Stopped) {
+            selectedIndex = 1;
+        }
+
+        picker.columns[0].selectedIndex = selectedIndex;
+        await picker.present();
+        picker.onDidDismiss().then(async data => {
+            const col = await picker.getColumn('Manage Schedule');
+            automation.status = AutomationStatusEnum.parseEnum(col.options[col.selectedIndex].value);
+            this.updateAutomation(automation);
+        });
+    }
+
+    async openAutomationGroupScheduleStatusPicker(automationGroup: AutomationGroupView) {
         const picker = await this.pickerCtrl.create({
             buttons: [{
                 text: 'Done',

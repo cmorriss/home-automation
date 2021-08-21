@@ -6,7 +6,7 @@ import {catchError, map} from 'rxjs/operators';
 import {Control} from './dataModels/Control';
 import {DatePipe} from '@angular/common';
 import {AutomationGroup} from './dataModels/AutomationGroup';
-import {ActionType, Automation} from './dataModels/Automation';
+import {ActionType, Automation, EventType} from './dataModels/Automation';
 import {Event} from './dataModels/Event';
 import {Action} from './dataModels/Action';
 import {ControlAction} from './dataModels/ControlAction';
@@ -21,14 +21,14 @@ import {Threshold} from './dataModels/Threshold';
 
 const apiIotUrl = 'https://morrissey.io/api/iot';
 const controlApiUrl = apiIotUrl + '/controls';
-const automationGroupApiUrl = apiIotUrl + '/automation-groups';
-const automationApiUrl = apiIotUrl + '/automations';
-const controlGroupApiUrl = apiIotUrl + '/control-groups';
-const thresholdApiUrl = apiIotUrl + '/thresholds';
 const controlActionApiUrl = apiIotUrl + '/control-actions';
-const automationGroupActionApiUrl = apiIotUrl + '/automation-group-actions';
+const controlGroupApiUrl = apiIotUrl + '/control-groups';
+const automationApiUrl = apiIotUrl + '/automations';
 const automationActionApiUrl = apiIotUrl + '/automation-actions';
+const automationGroupApiUrl = apiIotUrl + '/automation-groups';
+const automationGroupActionApiUrl = apiIotUrl + '/automation-group-actions';
 const metricApiUrl = apiIotUrl + '/metrics'
+const thresholdApiUrl = apiIotUrl + '/thresholds';
 
 @Injectable({
     providedIn: 'root'
@@ -119,6 +119,22 @@ export class IotService {
         }));
     }
 
+    getControl(controlId: number): Observable<Control> {
+        return this.getTypedResource(controlApiUrl, controlId, Control);
+    }
+
+    private getTypedResource<T>(url: string, resourceId: number, type: Constructor<T>): Observable<T> {
+        const resourceUrl = `${url}/${resourceId}`;
+        console.log(`Loading resource at url ${resourceUrl}`);
+        return this.http.get(resourceUrl).pipe(
+            map(IotService.extractData),
+            catchError(IotService.handleError)
+        ).pipe(map((value) => {
+            const deserializer = new TypedJSON(type);
+            return deserializer.parse(value);
+        }));
+    }
+
     private getTypedResources<T>(url: string, type: Constructor<T>): Observable<T[]> {
         return this.getResources(url).pipe(map((value, index) => {
             const deserializer = new TypedJSON(type);
@@ -142,36 +158,54 @@ export class IotService {
         }));
     }
 
-    updateControl(control: Control): Observable<any> {
+    updateControl(control: Control): Observable<Control> {
         return this.updateResource(controlApiUrl, control.id, control, Control);
     }
 
-    updateControlGroup(controlGroup: ControlGroup): Observable<any> {
+    updateControlGroup(controlGroup: ControlGroup): Observable<ControlGroup> {
         return this.updateResource(controlGroupApiUrl, controlGroup.id, controlGroup, ControlGroup);
     }
 
-    updateAutomationGroup(automationGroup: AutomationGroup): Observable<any> {
+    updateAutomationGroup(automationGroup: AutomationGroup): Observable<AutomationGroup> {
         return this.updateResource(automationGroupApiUrl, automationGroup.id, automationGroup, AutomationGroup);
     }
 
-    updateAutomation(automation: Automation): Observable<any> {
+    updateAutomation(automation: Automation): Observable<Automation> {
         return this.updateResource(automationApiUrl, automation.id, automation, Automation);
     }
 
-    updateControlAction(controlAction: ControlAction): Observable<any> {
+    updateControlAction(controlAction: ControlAction): Observable<ControlAction> {
         return this.updateResource(controlActionApiUrl, controlAction.id, controlAction, ControlAction);
     }
 
-    updateAutomationGroupAction(automationGroupAction: AutomationGroupAction): Observable<any> {
+    updateAutomationGroupAction(automationGroupAction: AutomationGroupAction): Observable<AutomationGroupAction> {
         return this.updateResource(automationGroupActionApiUrl, automationGroupAction.id, automationGroupAction, AutomationGroupAction);
     }
 
-    updateScheduleAction(automationAction: AutomationAction): Observable<any> {
+    updateScheduleAction(automationAction: AutomationAction): Observable<AutomationAction> {
         return this.updateResource(automationActionApiUrl, automationAction.id, automationAction, AutomationAction);
     }
 
-    updateEvent(event: Event) {
-        // TODO: Once thresholds are supported, implement this.
+    updateThreshold(threshold: Threshold): Observable<Threshold> {
+        return this.updateResource(thresholdApiUrl, threshold.id, threshold, Threshold);
+    }
+
+    updateEvent(event: Event): Observable<Event> {
+        switch(event.type) {
+            case EventType.THRESHOLD:
+                return this.updateThreshold(event as Threshold);
+        }
+    }
+
+    updateAction(action: Action): Observable<Action> {
+        switch (action.type) {
+            case ActionType.CONTROL:
+                return this.updateControlAction(action as ControlAction);
+            case ActionType.AUTOMATION_GROUP:
+                return this.updateAutomationGroupAction(action as AutomationGroupAction);
+            case ActionType.AUTOMATION:
+                return this.updateScheduleAction(action as AutomationAction);
+        }
     }
 
     createAutomation(scheduledAutomation: Automation): Observable<any> {
@@ -183,25 +217,11 @@ export class IotService {
     }
 
     deleteControlGroup(controlGroup: ControlGroup) {
-        return this.deleteResource(controlGroupApiUrl, controlGroup.id);
+        this.deleteResource(controlGroupApiUrl, controlGroup.id);
     }
 
     deleteAutomation(scheduledAutomation: Automation) {
         this.deleteResource(automationApiUrl, scheduledAutomation.id);
-    }
-
-    updateAction(action: Action) {
-        switch (action.type) {
-            case ActionType.CONTROL:
-                this.updateControlAction(action as ControlAction);
-                break;
-            case ActionType.AUTOMATION_GROUP:
-                this.updateAutomationGroupAction(action as AutomationGroupAction);
-                break;
-            case ActionType.AUTOMATION:
-                this.updateScheduleAction(action as AutomationAction);
-                break;
-        }
     }
 
     private createResource(apiUrl: string, resource: any): Observable<any> {

@@ -2,19 +2,16 @@
 
 package io.morrissey.iot.server.routes
 
-import io.ktor.application.call
-import io.ktor.response.respondRedirect
-import io.ktor.routing.Route
-import io.ktor.routing.get
-import io.morrissey.iot.server.modules.AuthorizedRoute
-import javax.inject.Inject
+import io.ktor.routing.*
+import org.koin.java.KoinJavaComponent.getKoin
 
-class AppRedirectRoute @Inject constructor(@AuthorizedRoute route: Route) {
-    init {
-//        with(route) {
-//            get("/") {
-//                call.respondRedirect("/app")
-//            }
-//        }
+class AppRedirectRoute {
+    private val route: Route = getKoin().get(AuthorizedRoute)
+
+    init { //        with(route) {
+        //            get("/") {
+        //                call.respondRedirect("/app")
+        //            }
+        //        }
     }
 }

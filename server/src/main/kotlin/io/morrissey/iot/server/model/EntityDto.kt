@@ -16,4 +16,8 @@ abstract class EntityDto<E : IntEntity> {
     open fun create(): E {
         throw NotImplementedError("The create implementation for this entity is not implemented.")
     }
+
+    open fun delete() {
+        throw NotImplementedError("The delete implementation for this entity is not implemented.")
+    }
 }

@@ -54,4 +54,11 @@ data class ControlGroupDto(
             }
         }
     }
+
+    override fun delete() {
+        log.info("Deleting control group with name $name")
+        transaction {
+            ControlGroup[this@ControlGroupDto.id].delete()
+        }
+    }
 }

@@ -12,14 +12,14 @@ import {MetricData} from '../dataModels/MetricData';
 })
 export class AnalyticsTabPage {
     @ViewChild('humidityCanvas') humidityCanvas: ElementRef;
-    @ViewChild('soilMoistureCanvas') soilMoisture2Canvas: ElementRef;
-    @ViewChild('soilMoistureCanvas2') soilMoisture3Canvas: ElementRef;
+    // @ViewChild('soilMoistureCanvas') soilMoisture2Canvas: ElementRef;
+    // @ViewChild('soilMoistureCanvas2') soilMoisture3Canvas: ElementRef;
 
     metrics: Metric[];
 
     humidityChart: any;
-    soilMoisture2Chart: any;
-    soilMoisture3Chart: any;
+    // soilMoisture2Chart: any;
+    // soilMoisture3Chart: any;
 
     constructor(public iotService: IotService, public loadingController: LoadingController) {
     }
@@ -35,36 +35,39 @@ export class AnalyticsTabPage {
         await loading.present();
         this.metrics = await this.iotService.getMetrics().toPromise();
         const humidityMetric = this.metrics.find((metric) => {
-            return metric.externalName === 'MASTER_BATH_HUMIDITY'
+            return metric.externalName === 'Master_Bath_Humidity'
         });
         const baselineMetric = this.metrics.find((metric) => {
-            return metric.externalName === 'HUMIDITY_BASELINE';
+            return metric.externalName === 'Master_Bath_Humidity_Baseline';
         });
-        const moisture2Metric = this.metrics.find((metric) => {
-            return metric.externalName === 'MoistureSensor2';
-        });
-        const moisture3Metric = this.metrics.find((metric) => {
-            return metric.externalName === 'MoistureSensor3';
-        });
+        // const moisture2Metric = this.metrics.find((metric) => {
+        //     return metric.externalName === 'MoistureSensor2';
+        // });
+        // const moisture3Metric = this.metrics.find((metric) => {
+        //     return metric.externalName === 'MoistureSensor3';
+        // });
         this.iotService.getMetricData(humidityMetric, 'THREE_HOURS').toPromise().then(humidityData => {
             this.iotService.getMetricData(baselineMetric, 'THREE_HOURS').toPromise().then(baselineData => {
                 this.buildHumidityChart(humidityData, baselineData);
-            });
-        });
-        this.iotService.getMetricData(moisture2Metric, 'TWO_DAYS').toPromise()
-            .then(soilMoistureData => {
-                this.buildChart(soilMoistureData, this.soilMoisture2Canvas);
-            });
-        this.iotService.getMetricData(moisture3Metric, 'TWO_DAYS').toPromise()
-            .then(soilMoistureData2 => {
-                this.buildChart(soilMoistureData2, this.soilMoisture3Canvas);
                 loading.dismiss();
             });
+        });
+        // this.iotService.getMetricData(moisture2Metric, 'TWO_DAYS').toPromise()
+        //     .then(soilMoistureData => {
+        //         this.buildChart(soilMoistureData, this.soilMoisture2Canvas);
+        //     });
+        // this.iotService.getMetricData(moisture3Metric, 'TWO_DAYS').toPromise()
+        //     .then(soilMoistureData2 => {
+        //         this.buildChart(soilMoistureData2, this.soilMoisture3Canvas);
+        //         loading.dismiss();
+        //     });
 
 
     }
 
     public buildChart(metricData: MetricData, canvas: ElementRef) {
+        const min = this.findMin(metricData.values) - 5;
+        const max = this.findMax(metricData.values) + 5;
         const labels = metricData.timestamps
         new Chart(canvas.nativeElement, {
             type: 'line',
@@ -84,8 +87,8 @@ export class AnalyticsTabPage {
                 scales: {
                     yAxes: [{
                         ticks: {
-                            min: 0,
-                            max: 100
+                            min: min,
+                            max: max
                         }
                     }]
                 }
@@ -96,6 +99,8 @@ export class AnalyticsTabPage {
 
     public buildHumidityChart(humidityChartData: MetricData, baselineData: MetricData) {
         const labels = humidityChartData.timestamps
+        const min = this.findMin(humidityChartData.values) - 5;
+        const max = this.findMax(humidityChartData.values) + 5;
         this.humidityChart = new Chart(this.humidityCanvas.nativeElement, {
             type: 'line',
             data: {
@@ -151,12 +156,28 @@ export class AnalyticsTabPage {
                 scales: {
                     yAxes: [{
                         ticks: {
-                            min: 0,
-                            max: 100
+                            min: min,
+                            max: max
                         }
                     }]
                 }
             }
         });
+    }
+
+    private findMin(data: Array<number>): number {
+        let min = -1;
+        data.forEach((num, index) => {
+            if (index == 0 || num < min) min = num;
+        });
+        if (min == -1) return 5; else return min;
+    }
+
+    private findMax(data: Array<number>): number {
+        let max = -1;
+        data.forEach((num, index) => {
+            if (index == 0 || num > max) max = num;
+        });
+        if (max == -1) return 95; else return max;
     }
 }

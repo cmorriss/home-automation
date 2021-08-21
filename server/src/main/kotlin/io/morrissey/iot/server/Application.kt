@@ -2,20 +2,19 @@
 
 package io.morrissey.iot.server
 
-import com.google.inject.Guice
-import com.google.inject.Injector
-import io.ktor.application.Application
-import io.ktor.application.ApplicationCall
-import io.ktor.application.ApplicationCallPipeline
-import io.ktor.application.call
-import io.ktor.locations.Location
-import io.ktor.locations.locations
-import io.ktor.request.header
-import io.ktor.request.host
-import io.ktor.request.port
-import io.ktor.util.AttributeKey
-import io.morrissey.iot.server.modules.CallModule
-import io.morrissey.iot.server.modules.MainModule
+import io.ktor.application.*
+import io.ktor.locations.*
+import io.ktor.request.*
+import io.morrissey.iot.server.modules.awsModule
+import io.morrissey.iot.server.modules.dbModule
+import io.morrissey.iot.server.modules.mainModule
+import kotlinx.serialization.json.Json
+import org.koin.core.logger.Level
+import org.koin.core.logger.PrintLogger
+import org.koin.core.module.Module
+import org.koin.ktor.ext.Koin
+import org.koin.ktor.ext.getKoin
+import org.koin.logger.SLF4JLogger
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -47,6 +46,11 @@ const val automationGroupActionPath = "$automationGroupActionsPath/{id}"
 const val metricsPath = "$iotPath/metrics"
 const val metricPath = "$metricsPath/{id}"
 const val metricDataPath = "$metricsPath/{id}/data"
+const val eventsPath = "$iotPath/events"
+const val eventPath = "$eventsPath/{id}"
+const val actionsPath = "$iotPath/actions"
+const val actionPath = "$actionsPath/{id}"
+
 
 interface IdPath {
     val id: Int
@@ -107,7 +111,8 @@ class MetricsPath
 data class MetricPath(override val id: Int) : IdPath
 
 @Location(metricDataPath)
-class MetricDataPath(override val id: Int, val endTime: String = "latest", val duration: String = "THREE_HOURS") : IdPath
+class MetricDataPath(override val id: Int, val endTime: String = "latest", val duration: String = "THREE_HOURS") :
+    IdPath
 
 @Location(loginPath)
 class LoginPath
@@ -115,32 +120,37 @@ class LoginPath
 @Location(loginFailedPath)
 data class LoginFailed(val reason: String)
 
+@Location(eventsPath)
+class EventsPath
 
-// attribute key for storing injector in a call
-val InjectorKey = AttributeKey<Injector>("injector")
+@Location(eventPath)
+class EventPath(override val id: Int) : IdPath
 
-// accessor for injector from a call
-val ApplicationCall.injector: Injector get() = attributes[InjectorKey]
+@Location(actionsPath)
+class ActionsPath
 
-fun Application.module() {
-    val homeServerConfig = HomeServerConfig(environment.config)
-    // Create main injector
-    val injector = Guice.createInjector(
-        MainModule(
-            this, homeServerConfig
-        )
-    )
+@Location(actionPath)
+class ActionPath(override val id: Int) : IdPath
 
-    // Intercept application call and put child injector into attributes
-    intercept(ApplicationCallPipeline.Features) {
-        call.attributes.put(
-            InjectorKey, injector.createChildInjector(
-                CallModule(
-                    call
-                )
-            )
+val json = Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
+    isLenient = true
+    coerceInputValues = true
+}
+
+fun Application.module(overrideModules: List<Module> = emptyList(), serverConfigOverride: HomeServerConfig? = null) {
+    val homeServerConfig = serverConfigOverride ?: HomeServerConfig(environment.config)
+
+    install(Koin) {
+        printLogger(Level.DEBUG)
+        val moduleList = listOf(mainModule(this@module, homeServerConfig), awsModule(homeServerConfig), dbModule())
+        modules(
+            moduleList.plus(overrideModules)
         )
     }
+
+    getKoin().get<HomeServerApplicationStartup>()
 }
 
 fun <T : Any> ApplicationCall.redirectUrl(t: T, secure: Boolean = true): String {

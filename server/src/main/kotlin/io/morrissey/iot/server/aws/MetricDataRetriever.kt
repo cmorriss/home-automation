@@ -9,17 +9,14 @@ import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import javax.inject.Inject
 
-class MetricDataRetriever @Inject constructor(private val cloudWatchClient: CloudWatchClient) {
+class MetricDataRetriever(private val cloudWatchClient: CloudWatchClient) {
     companion object {
         const val DATE_TIME_FORMAT = "E h:mm a"
     }
 
     fun retrieve(
-        metric: io.morrissey.iot.server.model.Metric,
-        endTime: String,
-        duration: MetricRetrievalDuration
+        metric: io.morrissey.iot.server.model.Metric, endTime: String, duration: MetricRetrievalDuration
     ): MetricData {
         log.info("Retrieving metric data for duration of $duration ending at $endTime.")
         log.info("Using metric: ${metric.externalName}, period ${metric.period}, statistic ${metric.statistic.cwName}, namespace ${metric.externalNamespace}, dimensions ${metric.dimensions}")
@@ -32,34 +29,19 @@ class MetricDataRetriever @Inject constructor(private val cloudWatchClient: Clou
         val startTime = cleanEndTime.minusSeconds(duration.seconds)
         log.info("Metric data start time is ${startTime.toInstant()}, end time is ${cleanEndTime.toInstant()}")
         val retrievedData = cloudWatchClient.getMetricData(
-            GetMetricDataRequest.builder()
-                .startTime(startTime.toInstant())
-                .endTime(cleanEndTime.toInstant())
+            GetMetricDataRequest.builder().startTime(startTime.toInstant()).endTime(cleanEndTime.toInstant())
                 .metricDataQueries(
-                    MetricDataQuery.builder()
-                        .id("id1")
-                        .metricStat(
-                            MetricStat.builder()
-                                .metric(
-                                    Metric.builder()
-                                        .namespace(metric.externalNamespace)
-                                        .metricName(metric.externalName)
-                                        .dimensions(metric.dimensions.toCloudWatchDimensions())
-                                        .build()
-                                )
-                                .period(metric.period)
-                                .stat(metric.statistic.cwName)
-                                .build()
-                        )
-                        .build()
-                )
-                .build()
+                    MetricDataQuery.builder().id("id1").metricStat(
+                            MetricStat.builder().metric(
+                                    Metric.builder().namespace(metric.externalNamespace).metricName(metric.externalName)
+                                        .dimensions(metric.dimensions.toCloudWatchDimensions()).build()
+                                ).period(metric.period).stat(metric.statistic.cwName).build()
+                        ).build()
+                ).build()
         )
         val values = retrievedData.metricDataResults()[0].values().toMutableList()
-        val timestamps = retrievedData.metricDataResults()[0].timestamps()
-            .map { it.atZone(LOCAL_TIME_ZONE) }
-            .map { it.format(DateTimeFormatter.ofPattern(DATE_TIME_FORMAT)) }
-            .toMutableList()
+        val timestamps = retrievedData.metricDataResults()[0].timestamps().map { it.atZone(LOCAL_TIME_ZONE) }
+            .map { it.format(DateTimeFormatter.ofPattern(DATE_TIME_FORMAT)) }.toMutableList()
 
         // Need to reverse them as cloudwatch sends the data back backwards.
         values.reverse()

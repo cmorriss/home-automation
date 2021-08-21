@@ -5,23 +5,17 @@ import io.morrissey.iot.server.aws.Controller
 import io.morrissey.iot.server.log
 import io.morrissey.iot.server.model.ControlType
 import io.morrissey.iot.server.model.Metric
-import io.morrissey.iot.server.model.MetricDimension
-import javax.inject.Inject
 
-class HomeIotLayoutImpl @Inject constructor(
-    private val controller: Controller,
-    private val synchronizer: AutomationSynchronizer
+class HomeIotLayoutImpl(
+    private val controller: Controller, private val synchronizer: AutomationSynchronizer
 ) : HomeIotLayout {
     override fun populate() {
         log.debug("Populating home IoT...")
 
         homeIot(controller, synchronizer) {
-            val isla =
-                control(
-                    thingName = "La_Isla_Bonita_Irrigation",
-                    name = "La Isla Bonita",
-                    type = ControlType.IRRIGATION_VALVE
-                )
+            val isla = control(
+                thingName = "La_Isla_Bonita_Irrigation", name = "La Isla Bonita", type = ControlType.IRRIGATION_VALVE
+            )
             val irish =
                 control(thingName = "Irish_Moss_Irrigation", name = "Irish Moss", type = ControlType.IRRIGATION_VALVE)
             val grass = control(thingName = "Grass_Irrigation", name = "Grass", type = ControlType.IRRIGATION_VALVE)
@@ -47,7 +41,7 @@ class HomeIotLayoutImpl @Inject constructor(
             automationGroup("Lights") {
                 scheduledAutomation(
                     control = backyardLight,
-                    startCron = "0 17 ? * SUN,MON,TUE,WED,THU,FRI,SAT *",
+                    startCron = "0 19 ? * SUN,MON,TUE,WED,THU,FRI,SAT *",
                     endCron = "0 0 ? * SUN,MON,TUE,WED,THU,FRI,SAT *"
                 )
             }
@@ -64,19 +58,17 @@ class HomeIotLayoutImpl @Inject constructor(
 
             metric(
                 name = "Master Bath Humidity",
-                externalName = "MASTER_BATH_HUMIDITY",
-                externalNamespace = "SENSORS",
+                externalName = "Master_Bath_Humidity",
+                externalNamespace = "Home",
                 period = 300,
-                statistic = Metric.Statistic.AVG,
-                dimensions = listOf(MetricDimension("LOCATION", "MASTER_BATH"))
+                statistic = Metric.Statistic.AVG
             )
             metric(
                 name = "Humidity Baseline",
-                externalName = "HUMIDITY_BASELINE",
-                externalNamespace = "SENSORS",
+                externalName = "Master_Bath_Humidity_Baseline",
+                externalNamespace = "Home",
                 period = 300,
-                statistic = Metric.Statistic.AVG,
-                dimensions = listOf(MetricDimension("LOCATION", "MASTER_BATH"))
+                statistic = Metric.Statistic.AVG
             )
         }
     }

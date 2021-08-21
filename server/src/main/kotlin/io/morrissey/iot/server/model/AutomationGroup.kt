@@ -1,14 +1,13 @@
 package io.morrissey.iot.server.model
 
-import com.google.inject.Injector
 import io.morrissey.iot.server.log
-import io.morrissey.iot.server.services.AutomationStatusHandlerFactory
-import io.morrissey.iot.server.services.ResumeDateHandlerFactory
+import io.morrissey.iot.server.services.AutomationStatusHandler
+import io.morrissey.iot.server.services.ResumeDateHandler
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntityClass
-import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.transactions.transaction
-import javax.inject.Inject
+import org.koin.core.parameter.parametersOf
+import org.koin.java.KoinJavaComponent.inject
 
 enum class AutomationStatusEnum { ACTIVE, PAUSED, STOPPED }
 
@@ -18,40 +17,29 @@ object AutomationGroups : Groups<Automation, AutomationGroup>("automation_group"
 }
 
 class AutomationGroup(
-    id: EntityID<Int>,
-    automationStatusHandlerFactory: AutomationStatusHandlerFactory,
-    resumeDateHandlerFactory: ResumeDateHandlerFactory
+    id: EntityID<Int>
 ) : Group<Automation, AutomationGroupDto>(id), AutomationState {
     companion object : IntEntityClass<AutomationGroup>(
         AutomationGroups, AutomationGroup::class.java
-    ) {
-        @Inject
-        private lateinit var injector: Injector
-
-        override fun createInstance(entityId: EntityID<Int>, row: ResultRow?) : AutomationGroup {
-              return AutomationGroup(
-                  entityId,
-                  injector.getInstance(AutomationStatusHandlerFactory::class.java),
-                  injector.getInstance(ResumeDateHandlerFactory::class.java)
-              )
-        }
-    }
+    )
 
     var _status by AutomationGroups.status
-    override var status by automationStatusHandlerFactory.create(::_status)
+    private val automationStatusHandler by inject(AutomationStatusHandler::class.java) {
+        parametersOf(
+            ::_status
+        )
+    }
+    override var status by automationStatusHandler
     var _resumeDate by AutomationGroups.resumeDate
-    override var resumeDate by resumeDateHandlerFactory.create(::_resumeDate)
+    override var resumeDate by inject(ResumeDateHandler::class.java) { parametersOf(::_resumeDate) }.value
     override var name by AutomationGroups.name
     override var items: List<Automation> by AutomationGroups.itemIds.transform({ automations ->
-                                                                                   automations.joinToString(":") {
-                                                                                       it.id.toString()
-                                                                                   }
-                                                                               }, { itemsString ->
-                                                                                   itemsString.split(":")
-                                                                                       .filter { it.isNotBlank() }
-                                                                                       .map(String::toInt)
-                                                                                       .map { Automation.findById(it)!! }
-                                                                               })
+        automations.joinToString(":") {
+            it.id.toString()
+        }
+    }, { itemsString ->
+        itemsString.split(":").filter { it.isNotBlank() }.map(String::toInt).map { Automation.findById(it)!! }
+    })
     override val automations: List<Automation>
         get() {
             return transaction { items }
