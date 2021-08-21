@@ -3,7 +3,6 @@ package io.morrissey.iot.server.aws
 import io.mockk.every
 import io.mockk.mockk
 import io.morrissey.iot.server.model.Metric
-import io.morrissey.iot.server.model.MetricDimension
 import io.morrissey.iot.server.model.MetricDto
 import org.junit.jupiter.api.Test
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
@@ -25,11 +24,8 @@ class MetricDataTest {
                 secureProperties.getProperty("awsAccessKey"), secureProperties.getProperty("awsSecretKey")
             )
         )
-        val cwClient = CloudWatchClient.builder()
-
-            .region(Region.US_WEST_2)
-            .credentialsProvider(credentialsProvider)
-            .build()
+        val cwClient =
+            CloudWatchClient.builder().region(Region.US_WEST_2).credentialsProvider(credentialsProvider).build()
 
         val retriever = MetricDataRetriever(cwClient)
         val metric = mockk<Metric>()
@@ -40,8 +36,6 @@ class MetricDataTest {
         every { metric.period }.returns(300)
         every { metric.toDto() }.returns(MetricDto(1, "", "", "", 1, Metric.Statistic.AVG, listOf()))
         val data = retriever.retrieve(metric, "latest", MetricRetrievalDuration.THREE_HOURS)
-        println("found data ${data.values}")
-        println("found timestamps ${data.timestamps}")
         assertTrue { data.values.isNotEmpty() }
     }
 }

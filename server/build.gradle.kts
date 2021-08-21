@@ -2,7 +2,7 @@ import org.gradle.api.JavaVersion.VERSION_14
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    val kotlinVersion = "1.5.20"
+    val kotlinVersion = "1.5.21"
     java
     kotlin("jvm") version kotlinVersion
     application
@@ -69,9 +69,9 @@ dependencies {
 
     // AWS
     implementation(platform("software.amazon.awssdk:bom:$awsSdkVersion"))
-    implementation("software.amazon.awssdk:eventbridge:2.17.14")
-    implementation("software.amazon.awssdk:cloudwatch:2.17.14")
-    implementation("software.amazon.awssdk:iotdataplane:2.17.14")
+    implementation("software.amazon.awssdk:eventbridge:2.17.19")
+    implementation("software.amazon.awssdk:cloudwatch:2.17.19")
+    implementation("software.amazon.awssdk:iotdataplane:2.17.19")
     implementation("software.amazon.awssdk.iotdevicesdk:aws-iot-device-sdk:$awsIotDeviceSdkVersion")
 
     // AWS Xray
@@ -100,6 +100,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.5.21")
     testImplementation("io.mockk:mockk:1.12.0")
     testImplementation("org.koin:koin-test:$koinVersion")
     testImplementation("org.koin:koin-test-junit5:$koinVersion")
